@@ -1,0 +1,59 @@
+# Nombre que aparecerá en la sección Actions de GitHub
+name: CI
+
+# Eventos que activan las comprobaciones automáticas
+on:
+  # Ejecutar cuando se suban cambios a la rama main
+  push:
+    branches: [main]
+
+  # Ejecutar al crear o actualizar un Pull Request hacia main
+  pull_request:
+    branches: [main]
+
+  # Permitir iniciar el workflow manualmente desde GitHub
+  workflow_dispatch:
+
+# Trabajos que GitHub ejecutará en una máquina virtual
+jobs:
+  frontend:
+    # Nombre visible del trabajo
+    name: frontend
+
+    # Sistema operativo donde se ejecutarán los pasos
+    runs-on: ubuntu-latest
+
+    # Pasos que se ejecutan en orden
+    steps:
+      # Descargar el código del repositorio
+      - uses: actions/checkout@v4
+
+      # Avisar si no existe package.json en la raíz del repositorio
+      - name: Aviso si aún no hay proyecto
+        if: hashFiles('package.json') == ''
+        run: 'echo "Todavía no existe package.json, no hay nada que revisar."'
+
+      # Instalar Node.js solo si existe package.json
+      - name: Instalar Node
+        if: hashFiles('package.json') != ''
+        uses: actions/setup-node@v4
+        with:
+          # Usar una versión de Node.js con soporte a largo plazo (LTS)
+          node-version: lts/*
+
+      # Instalar las dependencias usando el archivo de bloqueo
+      - name: Instalar dependencias
+        if: hashFiles('package-lock.json') != ''
+        run: npm ci
+
+      # Analizar el código si existe package.json
+      - name: Lint
+        if: hashFiles('package.json') != ''
+        # No fallar si el script lint no está definido
+        run: npm run lint --if-present
+
+      # Ejecutar las pruebas automatizadas si existe package.json
+      - name: Pruebas
+        if: hashFiles('package.json') != ''
+        # No fallar si el script test no está definido
+        run: npm test --if-present
