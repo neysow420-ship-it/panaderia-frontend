@@ -1,0 +1,15 @@
+# entorno local (NUNCA se suben)
+.env
+.env*
+# Node
+node_modules/
+dist/
+*.log
+
+# Editores y sistema
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+# Permite conservar la plantilla de ejemplo en Git.
+!.env.example
