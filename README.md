@@ -28,8 +28,8 @@ El comportamiento de la sincronización, la resolución de conflictos y los esta
 En desarrollo. Las funcionalidades y los resultados experimentales se documentarán a medida que se implementen y validen.
 
 ## Desarrollo
-
-Las instrucciones de instalación, configuración y ejecución se completarán cuando estén definidas la estructura del proyecto y las dependencias.
+1. `npm install`
+2. `npm run dev` y abrir http://localhost:5173
 
 ## Calidad del código
 
