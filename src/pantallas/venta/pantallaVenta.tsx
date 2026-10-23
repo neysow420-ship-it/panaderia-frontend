@@ -1,6 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
-import { cargarCatalogo, type Producto } from '../../database/catalogo';
 import {
+  cargarCatalogo,
+  observarCatalogo,
+  type Producto,
+} from '../../database/catalogo';import {
   guardarVenta,
   listarVentas,
   observarVentas,
@@ -31,31 +34,63 @@ export default function PantallaVenta() {
   );
 
   // 1) Carga el catálogo una sola vez.
-  useEffect(() => {
-    cargarCatalogo().then(setCatalogo);
-  }, []);
+ useEffect(() => {
+  let activo = true;
 
-  // 2) Lee las ventas locales (las más recientes primero) y se mantiene al día:
-  //    escucha los cambios de la base local para refrescar la lista sola.
-  useEffect(() => {
-    let activo = true;
-
-    const refrescar = () =>
-      listarVentas().then((todas) => {
-        if (!activo) return;
-        // El ULID se ordena por hora de creación: el mayor es el más reciente.
-        todas.sort((a, b) => b._id.localeCompare(a._id));
-        setVentas(todas.slice(0, 10));
+  const refrescarCatalogo = () => {
+    void cargarCatalogo()
+      .then((productos) => {
+        if (activo) {
+          setCatalogo(productos);
+        }
+      })
+      .catch((error: unknown) => {
+        console.error('No se pudo leer el catálogo local:', error);
       });
+  };
 
-    refrescar();
-    const dejarDeEscuchar = observarVentas(refrescar);
+  // Escuchar primero, para no perder cambios mientras se carga.
+  const dejarDeEscuchar = observarCatalogo(refrescarCatalogo);
 
-    return () => {
-      activo = false;
-      dejarDeEscuchar();
-    };
-  }, []);
+  // Cargar también los productos que ya estaban guardados.
+  refrescarCatalogo();
+  //segundo use effect 
+  
+
+
+
+  return () => {
+    activo = false;
+    dejarDeEscuchar();
+  };
+}, []);
+
+useEffect(() => {
+  let activo = true;
+
+  function refrescarVentas() {
+    void listarVentas()
+      .then((resultado) => {
+        if (activo) {
+          setVentas(resultado);
+        }
+      })
+      .catch((error: unknown) => {
+        console.error('No se pudieron cargar las ventas:', error);
+      });
+  }
+
+  // Escuchar cambios en la base local de ventas.
+  const dejarDeEscuchar = observarVentas(refrescarVentas);
+
+  // Cargar también las ventas que ya estaban guardadas.
+  refrescarVentas();
+
+  return () => {
+    activo = false;
+    dejarDeEscuchar();
+  };
+}, []);
 
   async function registrar() {
     setGuardando(true);

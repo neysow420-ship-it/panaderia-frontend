@@ -1,25 +1,96 @@
-/** Producto tal como lo necesita la pantalla de venta. */
+
+import {
+  espejo,
+  type DocumentoCatalogo,
+} from './espejo';
+
 export interface Producto {
-  /** Es el `producto_id` que viaja en la venta, por ejemplo "producto:pan-frances". */
   id: string;
   nombre: string;
   precio_centavos: number;
 }
 
-// TEMPORAL hasta el ítem 4.12: mismos 5 productos y precios del contrato v1.
-// El servidor sigue siendo quien decide el precio oficial.
+// Respaldo temporal mientras CouchDB no esté disponible.
 const PRODUCTOS_TEMPORALES: Producto[] = [
-  { id: 'producto:pan-frances', nombre: 'Pan francés', precio_centavos: 10 },
-  { id: 'producto:semita', nombre: 'Semita', precio_centavos: 25 },
-  { id: 'producto:hojitas', nombre: 'Hojitas', precio_centavos: 15 },
-  { id: 'producto:cachos', nombre: 'Cachos', precio_centavos: 30 },
-  { id: 'producto:donas', nombre: 'Donas', precio_centavos: 35 },
+  {
+    id: 'producto:pan-frances',
+    nombre: 'Pan francés',
+    precio_centavos: 10,
+  },
+  {
+    id: 'producto:semita',
+    nombre: 'Semita',
+    precio_centavos: 25,
+  },
+  {
+    id: 'producto:hojitas',
+    nombre: 'Hojitas',
+    precio_centavos: 15,
+  },
+  {
+    id: 'producto:cachos',
+    nombre: 'Cachos',
+    precio_centavos: 30,
+  },
+  {
+    id: 'producto:donas',
+    nombre: 'Donas',
+    precio_centavos: 35,
+  },
 ];
 
-/**
- * Devuelve el catálogo local. En el ítem 4.12 solo cambia el cuerpo:
- * leerá la base local `espejo` en lugar de la lista fija.
- */
 export async function cargarCatalogo(): Promise<Producto[]> {
-  return PRODUCTOS_TEMPORALES;
+  const resultado = await espejo.allDocs({
+    include_docs: true,
+  });
+
+  const productos = resultado.rows.flatMap((fila) => {
+    const documento = fila.doc as DocumentoCatalogo | undefined;
+
+    if (!documento || documento._id.startsWith('_design/')) {
+      return [];
+    }
+
+    const nombre = documento.nombre?.trim();
+    const precio = documento.precio_centavos;
+
+    if (
+      !nombre ||
+      typeof precio !== 'number' ||
+      !Number.isSafeInteger(precio) ||
+      precio <= 0
+    ) {
+      return [];
+    }
+
+    return [
+      {
+        id: documento._id,
+        nombre,
+        precio_centavos: precio,
+      },
+    ];
+  });
+
+  if (productos.length === 0) {
+    console.warn(
+      'El espejo está vacío. Se utiliza el catálogo temporal de desarrollo.',
+    );
+
+    return PRODUCTOS_TEMPORALES;
+  }
+
+  return productos.sort((a, b) =>
+    a.nombre.localeCompare(b.nombre, 'es'),
+  );
+}
+
+export function observarCatalogo(
+  alCambiar: () => void,
+): () => void {
+  const escucha = espejo
+    .changes({ since: 'now', live: true })
+    .on('change', alCambiar);
+
+  return () => escucha.cancel();
 }
