@@ -10,8 +10,9 @@ import {
   type VentaLocal,
 } from '../../database/pendientes';
 import { formatearDinero } from '../../modelos/dinero';
+import { enviarPendientes } from '../../sync/cola';
 import { useCarrito } from './useCarrito';
-import './PantallaVenta.css';
+import './pantallaVenta.css';
 
 const ETIQUETA_ESTADO: Record<VentaLocal['estado'], string> = {
   pendiente: 'Pendiente: aún no es oficial',
@@ -98,8 +99,15 @@ useEffect(() => {
       await guardarVenta(carrito.lineas);
       carrito.vaciar();
       setAviso(
-        'Venta guardada en este dispositivo. Está pendiente: todavía no es una venta oficial.',
+        navigator.onLine
+          ? 'Venta guardada. Confirmando con el servidor…'
+          : 'Venta guardada en este dispositivo. Se enviará cuando vuelva la conexión.',
       );
+
+      // Intenta confirmarla de inmediato; el total oficial lo calcula la API.
+      void enviarPendientes().catch((error: unknown) => {
+        console.error('No se pudo iniciar el envío de la venta:', error);
+      });
     } catch (error) {
       console.error('No se pudo guardar la venta:', error);
       setAviso('No se pudo guardar la venta. Intenta de nuevo.');

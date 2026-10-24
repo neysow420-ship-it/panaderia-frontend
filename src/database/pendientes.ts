@@ -165,6 +165,45 @@ export async function actualizarEstadoVenta(
 }
 
 /**
+ * Confirma una venta que la API aceptó y guarda el total oficial calculado
+ * por el servidor. Solo se permite desde el estado `enviando`.
+ */
+export async function marcarVentaAceptada(
+  id: string,
+  totalOficialCentavos: number,
+): Promise<VentaLocal> {
+  if (
+    !Number.isSafeInteger(totalOficialCentavos) ||
+    totalOficialCentavos < 0
+  ) {
+    throw new Error(
+      'El total oficial debe ser un entero no negativo.',
+    );
+  }
+
+  const venta = await pendientes.get(id);
+
+  if (venta.estado !== 'enviando') {
+    throw new Error(
+      `Solo se puede aceptar una venta en estado enviando (estado actual: ${venta.estado}).`,
+    );
+  }
+
+  const actualizada: VentaLocal = {
+    ...venta,
+    estado: 'aceptada',
+    total_oficial_centavos: totalOficialCentavos,
+  };
+
+  const resultado = await pendientes.put(actualizada);
+
+  return {
+    ...actualizada,
+    _rev: resultado.rev,
+  };
+}
+
+/**
  * Función temporal para conservar la prueba de almacenamiento anterior.
  */
 export async function guardarVentaDePrueba(): Promise<VentaLocal> {
