@@ -1,4 +1,5 @@
 import type { Sesion } from '../auth/sesion';
+import { Icono, type NombreIcono } from './iconos';
 import './barraNavegacion.css';
 
 export type Pantalla = 'venta' | 'produccion' | 'cierre' | 'reportes';
@@ -8,6 +9,13 @@ const ETIQUETAS: Record<Pantalla, string> = {
   produccion: 'Producción',
   cierre: 'Cierre',
   reportes: 'Reportes',
+};
+
+const ICONOS: Record<Pantalla, NombreIcono> = {
+  venta: 'venta',
+  produccion: 'produccion',
+  cierre: 'cierre',
+  reportes: 'reportes',
 };
 
 interface Props {
@@ -24,13 +32,17 @@ export default function BarraNavegacion({
   onSalir,
 }: Props) {
   const esEncargado = sesion.usuario.rol === 'encargado';
+  const inicial = sesion.usuario.nombre.trim().charAt(0).toUpperCase() || 'P';
 
   return (
     <header className="barra">
-      <div className="barra-identidad">
-        <span className="barra-marca">Panadería</span>
-        <span className={`barra-rol ${sesion.usuario.rol}`}>
-          {esEncargado ? 'Encargado' : 'Cajero'}
+      <div className="barra-marca">
+        <span className="barra-logo" aria-hidden="true">
+          <Icono nombre="hogaza" />
+        </span>
+        <span className="barra-identidad">
+          <strong>Panadería</strong>
+          <span>Horno de barrio</span>
         </span>
       </div>
 
@@ -41,7 +53,8 @@ export default function BarraNavegacion({
           aria-current={pantalla === 'venta' ? 'page' : undefined}
           onClick={() => onCambiar('venta')}
         >
-          {ETIQUETAS.venta}
+          <Icono nombre={ICONOS.venta} />
+          <span>{ETIQUETAS.venta}</span>
         </button>
 
         {esEncargado &&
@@ -53,16 +66,35 @@ export default function BarraNavegacion({
               aria-current={pantalla === seccion ? 'page' : undefined}
               onClick={() => onCambiar(seccion)}
             >
-              {ETIQUETAS[seccion]}
+              <Icono nombre={ICONOS[seccion]} />
+              <span>{ETIQUETAS[seccion]}</span>
             </button>
           ))}
       </nav>
 
       <div className="barra-sesion">
-        <span className="barra-usuario">{sesion.usuario.nombre}</span>
+        <div className="barra-usuario">
+          <span className="barra-avatar" aria-hidden="true">
+            {inicial}
+          </span>
+          <span className="barra-datos">
+            <strong>{sesion.usuario.nombre}</strong>
+            <span className={`barra-rol ${sesion.usuario.rol}`}>
+              {esEncargado ? 'Encargado' : 'Cajero'}
+            </span>
+          </span>
+        </div>
+
         {onSalir ? (
-          <button type="button" className="barra-salir" onClick={onSalir}>
-            Salir
+          <button
+            type="button"
+            className="barra-salir"
+            onClick={onSalir}
+            aria-label="Cerrar sesión"
+            title="Cerrar sesión"
+          >
+            <Icono nombre="salir" />
+            <span>Salir</span>
           </button>
         ) : (
           <span className="barra-sin-login" title="VITE_AUTH=desactivado">

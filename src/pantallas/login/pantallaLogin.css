@@ -1,91 +1,395 @@
 .login {
   min-height: 100svh;
   display: grid;
+  grid-template-columns: minmax(0, 1.12fr) minmax(420px, 0.88fr);
+  background: var(--fondo);
+}
+
+/* ---------------------------------------------------------------
+   Lado editorial: la panadería como portada de una libreta.
+   --------------------------------------------------------------- */
+.login-presentacion {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: clamp(28px, 4vw, 58px);
+  border-right: 1px solid var(--linea);
+  background:
+    radial-gradient(
+      circle at 76% 14%,
+      rgba(198, 138, 67, 0.13),
+      transparent 30%
+    ),
+    linear-gradient(145deg, #ffffff 0%, #fbf8f2 100%);
+  animation: aparecer 420ms var(--transicion) both;
+}
+
+.login-presentacion__marca {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.login-sello {
+  display: grid;
   place-items: center;
-  padding: 24px;
-  box-sizing: border-box;
+  width: 45px;
+  height: 45px;
+  border: 1px solid var(--linea-fuerte);
+  border-radius: 50%;
+  color: var(--acento);
+  background: var(--superficie);
+  box-shadow: 0 8px 20px -18px rgba(40, 34, 30, 0.5);
 }
 
-.login-tarjeta {
-  width: min(420px, 100%);
-  padding: 28px 24px;
-  border: 1px solid var(--border);
-  border-radius: 16px;
-  background: var(--bg);
-  box-shadow: var(--shadow);
-  text-align: left;
+.login-sello .icono {
+  width: 24px;
+  height: 24px;
 }
 
-.login-marca {
-  margin: 0 0 4px;
-  color: var(--accent);
+.login-presentacion__marca > span:last-child {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.08;
+}
+
+.login-presentacion__marca strong {
+  color: var(--tinta-fuerte);
+  font-family: var(--display);
+  font-size: 1.12rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+.login-presentacion__marca small {
+  color: var(--tinta-suave);
+  font-size: 0.6rem;
   font-weight: 700;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.16em;
   text-transform: uppercase;
-  font-size: 13px;
 }
 
-.login h1 {
-  margin: 0 0 8px;
-  font-size: 32px;
+.login-presentacion__cuerpo {
+  position: relative;
+  z-index: 2;
+  max-width: 690px;
+  margin: clamp(48px, 8vh, 96px) 0;
+}
+
+.login-presentacion__titular {
+  max-width: 10ch;
+  margin-top: 18px;
+  color: var(--tinta-fuerte);
+  font-family: var(--display);
+  font-size: clamp(3.4rem, 6.3vw, 6.6rem);
+  font-weight: 500;
+  line-height: 0.86;
+  letter-spacing: -0.055em;
+}
+
+.login-presentacion__titular em {
+  color: var(--acento);
+  font-style: italic;
+  font-weight: inherit;
+}
+
+.login-presentacion__cuerpo > p:last-child {
+  max-width: 42ch;
+  margin-top: 22px;
+  color: var(--tinta-suave);
+  font-size: clamp(0.95rem, 1.05vw, 1.06rem);
+  line-height: 1.6;
+}
+
+.login-presentacion__pie {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 20px;
+  padding-top: 18px;
+  border-top: 1px solid var(--linea);
+}
+
+.login-beneficios {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 9px 20px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.login-beneficios li {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--tinta-suave);
+  font-size: 0.63rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.login-beneficios .icono {
+  width: 15px;
+  height: 15px;
+  color: var(--acento);
+}
+
+.login-presentacion__folio {
+  flex: none;
+  color: var(--tinta-tenue);
+  font-family: var(--mono);
+  font-size: 0.58rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+/* Sello de horno: círculos finos y una espiga enorme. */
+.login-sol {
+  position: absolute;
+  top: -154px;
+  right: -142px;
+  display: grid;
+  place-items: center;
+  width: min(46vw, 560px);
+  aspect-ratio: 1;
+  border: 1px solid color-mix(in srgb, var(--miel) 30%, transparent);
+  border-radius: 50%;
+  color: var(--miel);
+  opacity: 0.68;
+  pointer-events: none;
+}
+
+.login-sol::before {
+  content: '';
+  position: absolute;
+  inset: 54px;
+  border: 1px solid color-mix(in srgb, var(--miel) 24%, transparent);
+  border-radius: 50%;
+}
+
+.login-sol::after {
+  content: '';
+  position: absolute;
+  inset: 26%;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle,
+    color-mix(in srgb, var(--miel) 12%, transparent),
+    transparent 68%
+  );
+}
+
+.login-sol .icono {
+  width: 28%;
+  height: 28%;
+  opacity: 0.85;
+  transform: rotate(-10deg);
+}
+
+/* ---------------------------------------------------------------
+   Tarjeta de acceso: papel blanco, borde superior tostado.
+   --------------------------------------------------------------- */
+.login-tarjeta {
+  position: relative;
+  width: min(432px, 100%);
+  align-self: center;
+  justify-self: center;
+  padding: clamp(30px, 4vw, 46px);
+  border: 1px solid var(--linea);
+  border-top: 3px solid var(--acento);
+  border-radius: var(--radio-sm);
+  background: var(--superficie);
+  box-shadow: 10px 10px 0 var(--superficie-alt);
+  animation: aparecer 380ms 70ms var(--transicion) both;
+}
+
+.login-tarjeta__numero {
+  position: absolute;
+  top: 18px;
+  right: 20px;
+  color: var(--tinta-tenue);
+  font-family: var(--mono);
+  font-size: 0.58rem;
+  letter-spacing: 0.16em;
+}
+
+.login-cabecera {
+  margin-bottom: 24px;
+  padding-bottom: 22px;
+  border-bottom: 1px solid var(--linea);
+}
+
+.login-marca-pequena {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--acento);
+  font-size: 0.64rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.login-marca-pequena .icono {
+  width: 17px;
+  height: 17px;
+}
+
+.login-marca-pequena small {
+  color: var(--tinta-tenue);
+  font-size: 0.58rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+}
+
+.login-cabecera .etiqueta {
+  margin-top: 22px;
+}
+
+.login-cabecera h1 {
+  margin-top: 10px;
+  font-size: clamp(2.25rem, 3.4vw, 3.1rem);
+  line-height: 0.94;
 }
 
 .login-ayuda {
-  margin: 0 0 20px;
-  font-size: 15px;
+  margin-top: 12px;
+  color: var(--tinta-suave);
+  font-size: 0.86rem;
+  line-height: 1.5;
 }
 
 .login-formulario {
   display: grid;
-  gap: 8px;
-}
-
-.login-formulario label {
-  font-size: 15px;
-  color: var(--text-h);
-  font-weight: 600;
-}
-
-.login-formulario input {
-  width: 100%;
-  box-sizing: border-box;
-  min-height: 52px;
-  padding: 10px 12px;
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  background: var(--bg);
-  color: var(--text-h);
-  font: inherit;
-}
-
-.login-formulario input:focus {
-  outline: 2px solid var(--accent-border);
-  outline-offset: 1px;
+  gap: 16px;
 }
 
 .login-boton {
-  margin-top: 12px;
-  min-height: 56px;
-  border: 1px solid var(--accent);
-  border-radius: 10px;
-  background: var(--accent);
-  color: #fff;
-  font: inherit;
-  font-weight: 700;
-  cursor: pointer;
+  width: 100%;
+  min-height: 54px;
+  margin-top: 4px;
 }
 
-.login-boton:disabled {
-  opacity: 0.6;
+.login-ojo {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  flex: none;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radio-xs);
+  color: var(--tinta-suave);
+  background: transparent;
+  cursor: pointer;
+  transition:
+    color var(--transicion),
+    background var(--transicion);
+}
+
+.login-ojo:hover {
+  color: var(--acento);
+  background: var(--acento-suave);
+}
+
+.login-ojo .icono {
+  width: 18px;
+  height: 18px;
+}
+
+.login-ojo:disabled {
   cursor: not-allowed;
+  opacity: 0.5;
 }
 
 .login-error {
-  margin-top: 16px;
-  padding: 10px 12px;
-  border: 1px solid #dc2626;
-  border-radius: 8px;
-  background: rgba(220, 38, 38, 0.08);
-  color: var(--text-h);
-  font-size: 15px;
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin-top: 14px;
+  padding: 11px 12px;
+  border: 1px solid color-mix(in srgb, var(--rojo) 28%, var(--linea));
+  border-left: 3px solid var(--rojo);
+  border-radius: var(--radio-xs);
+  color: var(--rojo);
+  background: var(--rojo-suave);
+  font-size: 0.8rem;
+  line-height: 1.4;
+}
+
+.login-error .icono {
+  width: 17px;
+  height: 17px;
+  margin-top: 1px;
+}
+
+.login-error code {
+  padding: 1px 4px;
+  border-radius: 2px;
+  color: inherit;
+  background: color-mix(in srgb, var(--rojo) 9%, transparent);
+  font-family: var(--mono);
+  font-size: 0.9em;
+}
+
+.login-pie {
+  margin-top: 22px;
+  padding-top: 16px;
+  border-top: 1px solid var(--linea);
+  color: var(--tinta-suave);
+  font-size: 0.7rem;
+  line-height: 1.5;
+  text-align: center;
+}
+
+@media (max-width: 1180px) {
+  .login {
+    grid-template-columns: minmax(0, 1fr) minmax(390px, 0.82fr);
+  }
+
+  .login-presentacion__pie {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}
+
+@media (max-width: 900px) {
+  .login {
+    grid-template-columns: 1fr;
+    padding: clamp(16px, 5vw, 36px);
+  }
+
+  .login-presentacion {
+    display: none;
+  }
+
+  .login-tarjeta {
+    width: min(470px, 100%);
+    margin-block: auto;
+  }
+}
+
+@media (max-width: 520px) {
+  .login {
+    padding: 12px;
+  }
+
+  .login-tarjeta {
+    padding: 28px 20px;
+    box-shadow: 6px 6px 0 var(--superficie-alt);
+  }
+
+  .login-cabecera h1 {
+    font-size: 2.2rem;
+  }
 }

@@ -4,6 +4,7 @@ import {
   guardarSesion,
   type Sesion,
 } from '../../auth/sesion';
+import { Icono } from '../../componentes/iconos';
 import './pantallaLogin.css';
 
 interface Props {
@@ -37,6 +38,7 @@ function mensajeDeError(datos: ErrorApi | null): string {
 export default function PantallaLogin({ onEntrar }: Props) {
   const [usuario, setUsuario] = useState('');
   const [contrasena, setContrasena] = useState('');
+  const [mostrarContrasena, setMostrarContrasena] = useState(false);
   const [error, setError] = useState('');
   const [enviando, setEnviando] = useState(false);
 
@@ -113,60 +115,163 @@ export default function PantallaLogin({ onEntrar }: Props) {
 
   return (
     <main className="login">
+      <section className="login-presentacion" aria-label="Panadería">
+        <div className="login-presentacion__marca">
+          <span className="login-sello" aria-hidden="true">
+            <Icono nombre="hogaza" />
+          </span>
+          <span>
+            <strong>Panadería</strong>
+            <small>Horno de barrio</small>
+          </span>
+        </div>
+
+        <div className="login-presentacion__cuerpo">
+          <p className="etiqueta">Panadería de barrio · 01</p>
+          <p className="login-presentacion__titular">
+            El pan de cada día, <em>en su punto.</em>
+          </p>
+          <p>
+            Un punto de venta sencillo para el ritmo del mostrador: rápido,
+            cálido y sin complicaciones.
+          </p>
+        </div>
+
+        <div className="login-presentacion__pie">
+          <ul className="login-beneficios">
+            <li>
+              <Icono nombre="venta" />
+              Mostrador rápido
+            </li>
+            <li>
+              <Icono nombre="reloj" />
+              Sigue sin conexión
+            </li>
+            <li>
+              <Icono nombre="cierre" />
+              Acceso por rol
+            </li>
+          </ul>
+          <span className="login-presentacion__folio">
+            Horneado para el barrio
+          </span>
+        </div>
+
+        <span className="login-sol" aria-hidden="true">
+          <Icono nombre="trigo" />
+        </span>
+      </section>
+
       <section className="login-tarjeta" aria-labelledby="login-titulo">
-        <p className="login-marca">Panadería</p>
-        <h1 id="login-titulo">Iniciar sesión</h1>
-        <p className="login-ayuda">
-          Usa tu usuario de caja o de encargado para entrar al sistema.
-        </p>
+        <span className="login-tarjeta__numero" aria-hidden="true">
+          01 / Acceso
+        </span>
+        <header className="login-cabecera">
+          <span className="login-marca-pequena">
+            <Icono nombre="hogaza" />
+            Panadería
+            <small>· Horno de barrio</small>
+          </span>
+          <p className="etiqueta">Acceso al mostrador</p>
+          <h1 id="login-titulo">
+            Entra al <em>mostrador.</em>
+          </h1>
+          <p className="login-ayuda">
+            Usa tu usuario de caja o de encargado para empezar el turno.
+          </p>
+        </header>
 
-        <form className="login-formulario" onSubmit={(evento) => void entrar(evento)}>
-          <label htmlFor="login-usuario">Usuario</label>
-          <input
-            id="login-usuario"
-            name="usuario"
-            type="text"
-            autoComplete="username"
-            autoCapitalize="none"
-            spellCheck={false}
-            value={usuario}
-            onChange={(evento) => setUsuario(evento.target.value)}
-            disabled={enviando || faltaConfiguracion}
-            required
-          />
+        <form
+          className="login-formulario"
+          onSubmit={(evento) => void entrar(evento)}
+        >
+          <div className="campo">
+            <label htmlFor="login-usuario">Usuario</label>
+            <div className="campo__control">
+              <input
+                id="login-usuario"
+                name="usuario"
+                type="text"
+                autoComplete="username"
+                autoCapitalize="none"
+                spellCheck={false}
+                value={usuario}
+                onChange={(evento) => setUsuario(evento.target.value)}
+                disabled={enviando || faltaConfiguracion}
+                placeholder="cajero1"
+                required
+              />
+            </div>
+          </div>
 
-          <label htmlFor="login-contrasena">Contraseña</label>
-          <input
-            id="login-contrasena"
-            name="contrasena"
-            type="password"
-            autoComplete="current-password"
-            value={contrasena}
-            onChange={(evento) => setContrasena(evento.target.value)}
-            disabled={enviando || faltaConfiguracion}
-            required
-          />
+          <div className="campo">
+            <label htmlFor="login-contrasena">Contraseña</label>
+            <div className="campo__control">
+              <Icono nombre="cierre" />
+              <input
+                id="login-contrasena"
+                name="contrasena"
+                type={mostrarContrasena ? 'text' : 'password'}
+                autoComplete="current-password"
+                value={contrasena}
+                onChange={(evento) => setContrasena(evento.target.value)}
+                disabled={enviando || faltaConfiguracion}
+                placeholder="Tu contraseña"
+                required
+              />
+              <button
+                type="button"
+                className="login-ojo"
+                onClick={() => setMostrarContrasena((valor) => !valor)}
+                disabled={enviando || faltaConfiguracion}
+                aria-label={
+                  mostrarContrasena
+                    ? 'Ocultar contraseña'
+                    : 'Mostrar contraseña'
+                }
+              >
+                <Icono
+                  nombre={mostrarContrasena ? 'ojo-cerrado' : 'ojo'}
+                />
+              </button>
+            </div>
+          </div>
 
           <button
             type="submit"
-            className="login-boton"
+            className="boton boton--principal login-boton"
             disabled={enviando || faltaConfiguracion}
           >
-            {enviando ? 'Entrando…' : 'Entrar'}
+            {enviando ? (
+              <>
+                <span className="spinner" aria-hidden="true" />
+                Entrando…
+              </>
+            ) : (
+              'Entrar'
+            )}
           </button>
         </form>
 
         {faltaConfiguracion && (
           <p className="login-error" role="alert">
-            Falta configurar <code>VITE_API_URL</code> en el frontend.
+            <Icono nombre="alerta" />
+            <span>
+              Falta configurar <code>VITE_API_URL</code> en el frontend.
+            </span>
           </p>
         )}
 
         {error && (
           <p className="login-error" role="alert" aria-live="polite">
-            {error}
+            <Icono nombre="alerta" />
+            <span>{error}</span>
           </p>
         )}
+
+        <p className="login-pie">
+          ¿Problemas para entrar? Consulta con el encargado del turno.
+        </p>
       </section>
     </main>
   );

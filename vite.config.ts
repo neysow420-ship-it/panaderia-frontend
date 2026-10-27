@@ -11,7 +11,7 @@ export default defineConfig({
       registerType: 'autoUpdate',
 
       // Archivos de /public que también deben quedar disponibles sin conexión.
-      includeAssets: ['favicon.svg', 'icons.svg'],
+      includeAssets: ['favicon.svg'],
 
       manifest: {
         name: 'Panadería',
@@ -21,8 +21,8 @@ export default defineConfig({
         start_url: '/',
         scope: '/',
         display: 'standalone',
-        background_color: '#8a4b1f',
-        theme_color: '#8a4b1f',
+        background_color: '#ffffff',
+        theme_color: '#a6491f',
         icons: [
           { src: 'pwa-192x192.png', sizes: '192x192', type: 'image/png' },
           { src: 'pwa-512x512.png', sizes: '512x512', type: 'image/png' },

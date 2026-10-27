@@ -1,118 +1,304 @@
 .barra {
+  position: sticky;
+  top: 0;
+  z-index: 20;
   display: flex;
-  flex-wrap: wrap;
   align-items: center;
-  gap: 12px 20px;
-  padding: 12px 16px;
-  border-bottom: 1px solid var(--border);
-  background: var(--bg);
-  text-align: left;
+  gap: clamp(14px, 2.4vw, 30px);
+  padding: 12px clamp(16px, 3vw, 36px);
+  border-bottom: 1px solid var(--linea);
+  background: color-mix(in srgb, var(--fondo) 92%, transparent);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+}
+
+.barra-marca {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  flex: none;
+}
+
+.barra-logo {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border: 1px solid var(--linea-fuerte);
+  border-radius: 50%;
+  color: var(--acento);
+  background: var(--superficie);
+  box-shadow: 0 8px 18px -16px rgba(40, 34, 30, 0.5);
+}
+
+.barra-logo .icono {
+  width: 22px;
+  height: 22px;
 }
 
 .barra-identidad {
   display: flex;
-  align-items: center;
-  gap: 10px;
+  flex-direction: column;
+  line-height: 1.05;
 }
 
-.barra-marca {
-  color: var(--text-h);
+.barra-identidad strong {
+  color: var(--tinta-fuerte);
+  font-family: var(--display);
+  font-size: 1.08rem;
+  font-weight: 600;
+  letter-spacing: -0.025em;
+}
+
+.barra-identidad span {
+  color: var(--tinta-suave);
+  font-size: 0.57rem;
   font-weight: 800;
-  letter-spacing: 0.02em;
-}
-
-.barra-rol {
-  padding: 2px 8px;
-  border-radius: 999px;
-  font-size: 12px;
-  font-weight: 700;
+  letter-spacing: 0.17em;
   text-transform: uppercase;
-  letter-spacing: 0.04em;
-  background: var(--accent-bg);
-  color: var(--accent);
-}
-
-.barra-rol.encargado {
-  background: rgba(22, 163, 74, 0.12);
-  color: #15803d;
 }
 
 .barra-navegacion {
   display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
-  flex: 1;
+  align-items: stretch;
+  gap: clamp(10px, 1.8vw, 24px);
+  margin-inline: auto;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.barra-navegacion::-webkit-scrollbar {
+  display: none;
 }
 
 .barra-navegacion button {
-  min-height: 40px;
-  padding: 6px 12px;
-  border: 1px solid transparent;
-  border-radius: 8px;
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 42px;
+  padding: 0 1px;
+  border: 0;
+  color: var(--tinta-suave);
   background: transparent;
-  color: var(--text);
-  font: inherit;
-  font-size: 15px;
+  font-size: 0.66rem;
+  font-weight: 800;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+  white-space: nowrap;
   cursor: pointer;
+  transition: color var(--transicion);
+}
+
+.barra-navegacion button::after {
+  content: '';
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  height: 1px;
+  background: var(--acento);
+  opacity: 0;
+  transform: scaleX(0.35);
+  transition:
+    opacity var(--transicion),
+    transform var(--transicion);
+}
+
+.barra-navegacion button .icono {
+  width: 15px;
+  height: 15px;
+  opacity: 0.66;
 }
 
 .barra-navegacion button:hover {
-  background: var(--accent-bg);
-  color: var(--text-h);
+  color: var(--acento);
 }
 
 .barra-navegacion button.activo {
-  border-color: var(--accent-border);
-  background: var(--accent-bg);
-  color: var(--text-h);
-  font-weight: 700;
+  color: var(--acento);
+}
+
+.barra-navegacion button.activo::after {
+  opacity: 1;
+  transform: scaleX(1);
 }
 
 .barra-sesion {
   display: flex;
   align-items: center;
-  gap: 10px;
-  font-size: 14px;
+  gap: 14px;
+  flex: none;
 }
 
 .barra-usuario {
-  color: var(--text-h);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.barra-avatar {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  flex: none;
+  border: 1px solid var(--linea-fuerte);
+  border-radius: 50%;
+  color: var(--acento);
+  background: var(--superficie);
+  font-family: var(--display);
+  font-size: 1rem;
   font-weight: 600;
 }
 
+.barra-datos {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.12;
+  min-width: 0;
+}
+
+.barra-datos strong {
+  overflow: hidden;
+  color: var(--tinta-fuerte);
+  font-size: 0.76rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.barra-rol {
+  color: var(--tinta-suave);
+  font-size: 0.57rem;
+  font-weight: 800;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+}
+
+.barra-rol.encargado {
+  color: var(--verde);
+}
+
 .barra-salir {
-  min-height: 38px;
-  padding: 6px 12px;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  background: var(--bg);
-  color: var(--text-h);
-  font: inherit;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 34px;
+  padding: 0 10px;
+  border: 1px solid transparent;
+  border-radius: var(--radio-xs);
+  color: var(--tinta-suave);
+  background: transparent;
+  font-size: 0.64rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
   cursor: pointer;
+  transition:
+    color var(--transicion),
+    border-color var(--transicion),
+    background var(--transicion);
+}
+
+.barra-salir .icono {
+  width: 14px;
+  height: 14px;
+}
+
+.barra-salir:hover {
+  border-color: color-mix(in srgb, var(--rojo) 28%, var(--linea));
+  color: var(--rojo);
+  background: var(--rojo-suave);
 }
 
 .barra-sin-login {
-  padding: 4px 8px;
-  border-radius: 999px;
-  background: var(--code-bg);
-  color: var(--text);
-  font-size: 12px;
+  padding: 5px 8px;
+  border: 1px solid var(--linea);
+  border-radius: var(--radio-xs);
+  color: var(--tinta-suave);
+  background: var(--fondo-calido);
+  font-size: 0.6rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
 }
 
-.pantalla-pendiente {
-  padding: 40px 20px;
-  text-align: center;
-}
+@media (max-width: 1080px) {
+  .barra {
+    flex-wrap: wrap;
+    gap: 10px 22px;
+  }
 
-.pantalla-pendiente h1 {
-  font-size: 32px;
-  margin: 0 0 12px;
-}
-
-@media (max-width: 720px) {
   .barra-navegacion {
     order: 3;
     width: 100%;
-    flex-basis: 100%;
+    margin-inline: 0;
+    padding-top: 3px;
+    border-top: 1px solid var(--linea);
+  }
+
+  .barra-navegacion button {
+    min-height: 38px;
+  }
+
+  .barra-sesion {
+    margin-left: auto;
+  }
+}
+
+@media (max-width: 640px) {
+  .barra {
+    gap: 9px 14px;
+    padding: 10px 13px;
+  }
+
+  .barra-logo {
+    width: 36px;
+    height: 36px;
+  }
+
+  .barra-identidad span,
+  .barra-datos .barra-rol {
+    display: none;
+  }
+
+  .barra-navegacion {
+    gap: 17px;
+  }
+
+  .barra-navegacion button {
+    gap: 4px;
+    min-height: 38px;
+    font-size: 0.61rem;
+  }
+
+  .barra-navegacion button .icono {
+    width: 13px;
+    height: 13px;
+  }
+
+  .barra-salir {
+    width: 34px;
+    justify-content: center;
+    padding: 0;
+  }
+
+  .barra-salir span {
+    display: none;
+  }
+}
+
+@media (max-width: 400px) {
+  .barra-datos strong {
+    max-width: 62px;
+  }
+
+  .barra-navegacion {
+    gap: 14px;
+  }
+
+  .barra-navegacion button {
+    font-size: 0.58rem;
   }
 }
