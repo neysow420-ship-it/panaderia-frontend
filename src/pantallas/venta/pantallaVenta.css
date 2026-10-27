@@ -129,6 +129,38 @@
   color: var(--text-h);
 }
 
+.aviso.advertencia {
+  border: 1px solid #d97706;
+  background: rgba(217, 119, 6, 0.12);
+}
+
+.aviso.envio {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border: 1px solid #d97706;
+  background: rgba(217, 119, 6, 0.12);
+}
+
+.aviso.envio.auth {
+  border-color: #dc2626;
+  background: rgba(220, 38, 38, 0.1);
+}
+
+.aviso.envio button {
+  flex: none;
+  min-height: 36px;
+  padding: 4px 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg);
+  color: var(--text-h);
+  font: inherit;
+  font-size: 14px;
+  cursor: pointer;
+}
+
 .ventas {
   list-style: none;
   margin: 0;

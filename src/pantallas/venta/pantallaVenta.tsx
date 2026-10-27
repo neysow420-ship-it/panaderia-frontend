@@ -3,14 +3,19 @@ import {
   cargarCatalogo,
   observarCatalogo,
   type Producto,
-} from '../../database/catalogo';import {
+} from '../../database/catalogo';
+import {
   guardarVenta,
   listarVentas,
   observarVentas,
   type VentaLocal,
 } from '../../database/pendientes';
 import { formatearDinero } from '../../modelos/dinero';
-import { enviarPendientes } from '../../sync/cola';
+import {
+  enviarPendientes,
+  EVENTO_AVISO_ENVIO,
+  type AvisoEnvio,
+} from '../../sync/cola';
 import { useCarrito } from './useCarrito';
 import './pantallaVenta.css';
 
@@ -23,8 +28,10 @@ const ETIQUETA_ESTADO: Record<VentaLocal['estado'], string> = {
 
 export default function PantallaVenta() {
   const [catalogo, setCatalogo] = useState<Producto[]>([]);
+  const [catalogoRespaldo, setCatalogoRespaldo] = useState(false);
   const [ventas, setVentas] = useState<VentaLocal[]>([]);
   const [aviso, setAviso] = useState('');
+  const [avisoEnvio, setAvisoEnvio] = useState<AvisoEnvio | null>(null);
   const [guardando, setGuardando] = useState(false);
   const carrito = useCarrito(catalogo);
 
@@ -40,9 +47,10 @@ export default function PantallaVenta() {
 
   const refrescarCatalogo = () => {
     void cargarCatalogo()
-      .then((productos) => {
+      .then((resultado) => {
         if (activo) {
-          setCatalogo(productos);
+          setCatalogo(resultado.productos);
+          setCatalogoRespaldo(resultado.esRespaldo);
         }
       })
       .catch((error: unknown) => {
@@ -63,6 +71,22 @@ export default function PantallaVenta() {
   return () => {
     activo = false;
     dejarDeEscuchar();
+  };
+}, []);
+
+// Avisos de la cola: sesión vencida o rol sin permiso.
+useEffect(() => {
+  const alAvisar = (evento: Event) => {
+    const detalle = (evento as CustomEvent<AvisoEnvio>).detail;
+
+    if (detalle?.mensaje) {
+      setAvisoEnvio(detalle);
+    }
+  };
+
+  window.addEventListener(EVENTO_AVISO_ENVIO, alAvisar);
+  return () => {
+    window.removeEventListener(EVENTO_AVISO_ENVIO, alAvisar);
   };
 }, []);
 
@@ -121,6 +145,26 @@ useEffect(() => {
   return (
     <main className="venta">
       <h1>Venta rápida</h1>
+
+      {catalogoRespaldo && (
+        <p className="aviso advertencia" role="alert">
+          Sin catálogo descargado: se muestran precios de respaldo. Conéctate
+          una vez para descargar el catálogo oficial.
+        </p>
+      )}
+
+      {avisoEnvio && (
+        <div className={`aviso envio ${avisoEnvio.tipo}`} role="alert">
+          <span>{avisoEnvio.mensaje}</span>
+          <button
+            type="button"
+            onClick={() => setAvisoEnvio(null)}
+            aria-label="Cerrar aviso"
+          >
+            Cerrar
+          </button>
+        </div>
+      )}
 
       <section className="productos" aria-label="Productos">
         {catalogo.map((p) => {

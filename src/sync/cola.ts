@@ -5,6 +5,36 @@ import {
   marcarVentaAceptada,
   type VentaLocal,
 } from '../database/pendientes';
+import {
+  avisarSesionExpirada,
+  tokenActual,
+} from '../auth/sesion';
+
+/** Aviso visible para la pantalla de venta. */
+export interface AvisoEnvio {
+  tipo: 'auth' | 'prohibido';
+  mensaje: string;
+}
+
+export const EVENTO_AVISO_ENVIO = 'panaderia:aviso-envio';
+
+/** Evita repetir el mismo aviso en cada intento de la cola. */
+let ultimoAviso: string | null = null;
+
+function avisar(aviso: AvisoEnvio): void {
+  if (ultimoAviso === aviso.mensaje) {
+    return;
+  }
+
+  ultimoAviso = aviso.mensaje;
+  window.dispatchEvent(
+    new CustomEvent<AvisoEnvio>(EVENTO_AVISO_ENVIO, { detail: aviso }),
+  );
+}
+
+function limpiarAviso(): void {
+  ultimoAviso = null;
+}
 
 /**
  * Forma de la respuesta de `POST /ventas` cuando el servidor acepta la venta.
@@ -129,6 +159,8 @@ export async function recuperarVentasEnviando(): Promise<number> {
  * Envía a la API todas las ventas pendientes, en orden.
  *
  * - `200`/`201`: la API confirmó la venta y devolvió el total oficial.
+ * - `401`: la sesión venció; se avisa al login y la venta sigue pendiente.
+ * - `403`: el rol no puede registrar ventas; se avisa y la venta sigue pendiente.
  * - `409`/`422`: la venta no es válida; queda rechazada con el motivo.
  * - Cualquier otro código o fallo de red: vuelve a `pendiente` y se detiene
  *   el envío para no insistir contra un servidor caído.
@@ -170,9 +202,18 @@ export async function enviarPendientes(): Promise<ResultadoEnvio> {
       try {
         venta = await actualizarEstadoVenta(venta._id, 'enviando');
 
+        const token = tokenActual();
+        const cabeceras: Record<string, string> = {
+          'Content-Type': 'application/json',
+        };
+
+        if (token) {
+          cabeceras.Authorization = `Bearer ${token}`;
+        }
+
         const respuesta = await fetch(url, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: cabeceras,
           body: JSON.stringify(venta.solicitud),
         });
 
@@ -187,8 +228,32 @@ export async function enviarPendientes(): Promise<ResultadoEnvio> {
           }
 
           await marcarVentaAceptada(venta._id, total);
+          limpiarAviso();
           enviadas += 1;
           continue;
+        }
+
+        // Sin token o con token vencido: se pide login y NO se pierde la cola.
+        if (respuesta.status === 401) {
+          avisar({
+            tipo: 'auth',
+            mensaje:
+              'Tu sesión expiró. Inicia sesión para enviar las ventas pendientes.',
+          });
+          await actualizarEstadoVenta(venta._id, 'pendiente');
+          avisarSesionExpirada();
+          break;
+        }
+
+        // El rol no puede vender (por ejemplo, un usuario sin permiso).
+        if (respuesta.status === 403) {
+          avisar({
+            tipo: 'prohibido',
+            mensaje:
+              'Tu usuario no tiene permiso para registrar ventas. Las ventas quedan pendientes.',
+          });
+          await actualizarEstadoVenta(venta._id, 'pendiente');
+          break;
         }
 
         if (respuesta.status === 409 || respuesta.status === 422) {

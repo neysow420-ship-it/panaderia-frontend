@@ -7,11 +7,13 @@ import PouchDB from 'pouchdb-browser';
 export interface DocumentoCatalogo {
   _id: string;
   _rev?: string;
+  tipo?: string;
   slug?: string;
   nombre?: string;
   precio_centavos?: number;
   costo_unitario_centavos?: number;
   vigente_desde?: string;
+  activo?: boolean;
 }
 
 /**

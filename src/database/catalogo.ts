@@ -10,6 +10,12 @@ export interface Producto {
   precio_centavos: number;
 }
 
+export interface ResultadoCatalogo {
+  productos: Producto[];
+  /** `true` cuando se usan los precios de respaldo porque el espejo está vacío. */
+  esRespaldo: boolean;
+}
+
 // Respaldo temporal mientras CouchDB no esté disponible.
 const PRODUCTOS_TEMPORALES: Producto[] = [
   {
@@ -39,7 +45,7 @@ const PRODUCTOS_TEMPORALES: Producto[] = [
   },
 ];
 
-export async function cargarCatalogo(): Promise<Producto[]> {
+export async function cargarCatalogo(): Promise<ResultadoCatalogo> {
   const resultado = await espejo.allDocs({
     include_docs: true,
   });
@@ -47,7 +53,12 @@ export async function cargarCatalogo(): Promise<Producto[]> {
   const productos = resultado.rows.flatMap((fila) => {
     const documento = fila.doc as DocumentoCatalogo | undefined;
 
-    if (!documento || documento._id.startsWith('_design/')) {
+    if (
+      !documento ||
+      documento._id.startsWith('_design/') ||
+      (documento.tipo !== undefined && documento.tipo !== 'producto') ||
+      documento.activo === false
+    ) {
       return [];
     }
 
@@ -77,12 +88,15 @@ export async function cargarCatalogo(): Promise<Producto[]> {
       'El espejo está vacío. Se utiliza el catálogo temporal de desarrollo.',
     );
 
-    return PRODUCTOS_TEMPORALES;
+    return { productos: PRODUCTOS_TEMPORALES, esRespaldo: true };
   }
 
-  return productos.sort((a, b) =>
-    a.nombre.localeCompare(b.nombre, 'es'),
-  );
+  return {
+    productos: productos.sort((a, b) =>
+      a.nombre.localeCompare(b.nombre, 'es'),
+    ),
+    esRespaldo: false,
+  };
 }
 
 export function observarCatalogo(

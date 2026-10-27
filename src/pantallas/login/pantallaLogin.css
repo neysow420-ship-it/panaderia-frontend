@@ -1,0 +1,91 @@
+.login {
+  min-height: 100svh;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  box-sizing: border-box;
+}
+
+.login-tarjeta {
+  width: min(420px, 100%);
+  padding: 28px 24px;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: var(--bg);
+  box-shadow: var(--shadow);
+  text-align: left;
+}
+
+.login-marca {
+  margin: 0 0 4px;
+  color: var(--accent);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-size: 13px;
+}
+
+.login h1 {
+  margin: 0 0 8px;
+  font-size: 32px;
+}
+
+.login-ayuda {
+  margin: 0 0 20px;
+  font-size: 15px;
+}
+
+.login-formulario {
+  display: grid;
+  gap: 8px;
+}
+
+.login-formulario label {
+  font-size: 15px;
+  color: var(--text-h);
+  font-weight: 600;
+}
+
+.login-formulario input {
+  width: 100%;
+  box-sizing: border-box;
+  min-height: 52px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg);
+  color: var(--text-h);
+  font: inherit;
+}
+
+.login-formulario input:focus {
+  outline: 2px solid var(--accent-border);
+  outline-offset: 1px;
+}
+
+.login-boton {
+  margin-top: 12px;
+  min-height: 56px;
+  border: 1px solid var(--accent);
+  border-radius: 10px;
+  background: var(--accent);
+  color: #fff;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.login-boton:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.login-error {
+  margin-top: 16px;
+  padding: 10px 12px;
+  border: 1px solid #dc2626;
+  border-radius: 8px;
+  background: rgba(220, 38, 38, 0.08);
+  color: var(--text-h);
+  font-size: 15px;
+}

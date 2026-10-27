@@ -67,8 +67,6 @@ export function iniciarReplicaCatalogo(
   notificar: Notificador = registrarEstado,
 ): () => void {
   const url = import.meta.env.VITE_CATALOGO_URL?.trim();
-  const autenticacionActiva =
-    import.meta.env.VITE_AUTH === 'activado';
   const usuario = import.meta.env.VITE_CATALOGO_USER?.trim();
   const contrasena = import.meta.env.VITE_CATALOGO_PASSWORD;
 
@@ -80,7 +78,9 @@ export function iniciarReplicaCatalogo(
     return () => {};
   }
 
-  if (autenticacionActiva && (!usuario || !contrasena)) {
+  // El catálogo vive en CouchDB y siempre usa el usuario `cliente`, aunque la
+  // API esté en modo sin login. No se depende de VITE_AUTH para esto.
+  if (!usuario || !contrasena) {
     notificar(
       'configuracion',
       'Faltan las credenciales de lectura del catálogo.',
@@ -88,14 +88,12 @@ export function iniciarReplicaCatalogo(
     return () => {};
   }
 
-  const opcionesRemotas = autenticacionActiva
-    ? {
-        auth: {
-          username: usuario!,
-          password: contrasena!,
-        },
-      }
-    : {};
+  const opcionesRemotas = {
+    auth: {
+      username: usuario,
+      password: contrasena,
+    },
+  };
 
   try {
     const catalogoRemoto = new PouchDB<DocumentoCatalogo>(
