@@ -44,7 +44,7 @@ describe('cola de ventas con autenticación', () => {
       token: 'token-de-prueba',
       tipo: 'Bearer',
       expira_en: new Date(Date.now() + 60_000).toISOString(),
-      usuario: { nombre: 'cajero1', rol: 'cajero' },
+      usuario: { nombre: '101', rol: 'cajero' },
     });
 
     mocks.listarVentas.mockResolvedValue([VENTA]);

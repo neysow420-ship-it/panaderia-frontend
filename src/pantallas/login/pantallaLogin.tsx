@@ -56,8 +56,8 @@ export default function PantallaLogin({ onEntrar }: Props) {
       return;
     }
 
-    if (!usuario.trim() || !contrasena) {
-      setError('Escribe tu usuario y contraseña.');
+    if (!/^\d{3}$/.test(usuario) || !/^\d{4}$/.test(contrasena)) {
+      setError('El código debe tener 3 dígitos y el PIN debe tener 4.');
       return;
     }
 
@@ -177,7 +177,7 @@ export default function PantallaLogin({ onEntrar }: Props) {
             Entra al <em>mostrador.</em>
           </h1>
           <p className="login-ayuda">
-            Usa tu usuario de caja o de encargado para empezar el turno.
+            Usa tu código de usuario y PIN para empezar el turno.
           </p>
         </header>
 
@@ -186,37 +186,41 @@ export default function PantallaLogin({ onEntrar }: Props) {
           onSubmit={(evento) => void entrar(evento)}
         >
           <div className="campo">
-            <label htmlFor="login-usuario">Usuario</label>
+            <label htmlFor="login-usuario">Código de usuario</label>
             <div className="campo__control">
               <input
                 id="login-usuario"
                 name="usuario"
                 type="text"
-                autoComplete="username"
-                autoCapitalize="none"
-                spellCheck={false}
+                inputMode="numeric"
+                autoComplete="off"
+                pattern="[0-9]{3}"
+                maxLength={3}
                 value={usuario}
-                onChange={(evento) => setUsuario(evento.target.value)}
+                onChange={(evento) => setUsuario(evento.target.value.replace(/\D/g, '').slice(0, 3))}
                 disabled={enviando || faltaConfiguracion}
-                placeholder="cajero1"
+                placeholder="000"
                 required
               />
             </div>
           </div>
 
           <div className="campo">
-            <label htmlFor="login-contrasena">Contraseña</label>
+            <label htmlFor="login-contrasena">PIN</label>
             <div className="campo__control">
               <Icono nombre="cierre" />
               <input
                 id="login-contrasena"
                 name="contrasena"
                 type={mostrarContrasena ? 'text' : 'password'}
-                autoComplete="current-password"
+                inputMode="numeric"
+                autoComplete="off"
+                pattern="[0-9]{4}"
+                maxLength={4}
                 value={contrasena}
-                onChange={(evento) => setContrasena(evento.target.value)}
+                onChange={(evento) => setContrasena(evento.target.value.replace(/\D/g, '').slice(0, 4))}
                 disabled={enviando || faltaConfiguracion}
-                placeholder="Tu contraseña"
+                placeholder="••••"
                 required
               />
               <button
