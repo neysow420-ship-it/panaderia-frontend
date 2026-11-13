@@ -54,8 +54,8 @@ Fase 4 en desarrollo. Ya están implementados:
    Abre http://localhost:5173.
 4. Para omitir el login solo en desarrollo, usa `VITE_AUTH=desactivado`.
 
-El backend debe tener `AUTH_MODE=activo` y los usuarios `cajero1` /
-`encargado1` sembrados. Si se prueba en el servidor, `CORS_ORIGINS` del backend
+El backend debe tener `AUTH_MODE=activo` y los códigos de usuario (3 dígitos) /
+PIN (4 dígitos) sembrados. Si se prueba en el servidor, `CORS_ORIGINS` del backend
 debe incluir el dominio del frontend. Ese mismo origen debe estar en
 `infra/couchdb/local.d/10-cors.ini` del backend, porque PouchDB lee el catálogo
 directamente desde CouchDB.

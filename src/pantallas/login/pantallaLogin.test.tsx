@@ -8,7 +8,7 @@ const SESION: Sesion = {
   token: 'jwt-de-prueba',
   tipo: 'Bearer',
   expira_en: new Date(Date.now() + 60_000).toISOString(),
-  usuario: { nombre: 'cajero1', rol: 'cajero' },
+  usuario: { nombre: '101', rol: 'cajero' },
 };
 
 function respuestaJson(status: number, cuerpo: unknown): Response {
@@ -35,8 +35,8 @@ describe('pantalla de login', () => {
 
     render(<PantallaLogin onEntrar={alEntrar} />);
 
-    await userEvent.type(screen.getByLabelText('Usuario'), 'cajero1');
-    await userEvent.type(screen.getByLabelText('Contraseña'), 'secreta');
+    await userEvent.type(screen.getByLabelText('Código de usuario'), '101');
+    await userEvent.type(screen.getByLabelText('PIN'), '1234');
     await userEvent.click(screen.getByRole('button', { name: 'Entrar' }));
 
     await waitFor(() => {
@@ -62,8 +62,8 @@ describe('pantalla de login', () => {
 
     render(<PantallaLogin onEntrar={alEntrar} />);
 
-    await userEvent.type(screen.getByLabelText('Usuario'), 'cajero1');
-    await userEvent.type(screen.getByLabelText('Contraseña'), 'mala');
+    await userEvent.type(screen.getByLabelText('Código de usuario'), '101');
+    await userEvent.type(screen.getByLabelText('PIN'), '9876');
     await userEvent.click(screen.getByRole('button', { name: 'Entrar' }));
 
     expect(
@@ -81,8 +81,8 @@ describe('pantalla de login', () => {
 
     render(<PantallaLogin onEntrar={vi.fn()} />);
 
-    await userEvent.type(screen.getByLabelText('Usuario'), 'cajero1');
-    await userEvent.type(screen.getByLabelText('Contraseña'), 'secreta');
+    await userEvent.type(screen.getByLabelText('Código de usuario'), '101');
+    await userEvent.type(screen.getByLabelText('PIN'), '1234');
     await userEvent.click(screen.getByRole('button', { name: 'Entrar' }));
 
     expect(
