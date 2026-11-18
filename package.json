@@ -9,7 +9,8 @@
     "lint": "eslint .",
     "test": "vitest run",
     "test:watch": "vitest",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "iconos": "node scripts/generar-iconos.mjs"
   },
   "dependencies": {
     "events": "^3.3.0",

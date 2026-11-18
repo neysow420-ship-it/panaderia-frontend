@@ -8,8 +8,10 @@ import {
   type Sesion,
 } from './auth/sesion';
 import BarraNavegacion, { type Pantalla } from './componentes/barraNavegacion';
-import { Icono, type NombreIcono } from './componentes/iconos';
+import PantallaCierre from './pantallas/cierre/pantallaCierre';
 import PantallaLogin from './pantallas/login/pantallaLogin';
+import PantallaProduccion from './pantallas/produccion/pantallaProduccion';
+import PantallaReportes from './pantallas/reportes/pantallaReportes';
 import PantallaVenta from './pantallas/venta/pantallaVenta';
 import { iniciarReplicaCatalogo } from './sync/catalogo';
 import { enviarPendientes, recuperarVentasEnviando } from './sync/cola';
@@ -113,74 +115,10 @@ function Aplicacion({ sesion, onSalir }: PropsAplicacion) {
 
       <div className="app-contenido">
         {pantallaVisible === 'venta' && <PantallaVenta />}
-        {pantallaVisible === 'produccion' && (
-          <PantallaPendiente
-            titulo="Producción"
-            descripcion="Aquí llevarás el control de las hornadas, la merma y los vencimientos del día."
-            detalles={['Hornadas', 'Merma', 'Vencimientos']}
-            icono="produccion"
-            onVolver={() => setPantalla('venta')}
-          />
-        )}
-        {pantallaVisible === 'cierre' && (
-          <PantallaPendiente
-            titulo="Cierre"
-            descripcion="El resumen de ventas y el cierre de caja estarán disponibles en esta sección."
-            detalles={['Ventas del día', 'Arqueo de caja', 'Cierre']}
-            icono="cierre"
-            onVolver={() => setPantalla('venta')}
-          />
-        )}
-        {pantallaVisible === 'reportes' && (
-          <PantallaPendiente
-            titulo="Reportes"
-            descripcion="Consulta el comportamiento de las ventas, la producción y la merma."
-            detalles={['Ventas', 'Merma', 'Tendencias']}
-            icono="reportes"
-            onVolver={() => setPantalla('venta')}
-          />
-        )}
+        {pantallaVisible === 'produccion' && <PantallaProduccion />}
+        {pantallaVisible === 'cierre' && <PantallaCierre />}
+        {pantallaVisible === 'reportes' && <PantallaReportes />}
       </div>
     </div>
-  );
-}
-
-function PantallaPendiente({
-  titulo,
-  descripcion,
-  detalles,
-  icono,
-  onVolver,
-}: {
-  titulo: string;
-  descripcion: string;
-  detalles: string[];
-  icono: NombreIcono;
-  onVolver: () => void;
-}) {
-  return (
-    <main className="pantalla-pendiente">
-      <section className="pendiente" aria-labelledby="pendiente-titulo">
-        <div className="pendiente__icono">
-          <Icono nombre={icono} />
-        </div>
-        <span className="pendiente__chip">Próximamente</span>
-        <h1 id="pendiente-titulo">{titulo}</h1>
-        <p className="pendiente__descripcion">{descripcion}</p>
-
-        <ul className="pendiente__lista">
-          {detalles.map((detalle) => (
-            <li key={detalle}>
-              <Icono nombre="check" />
-              {detalle}
-            </li>
-          ))}
-        </ul>
-
-        <button type="button" className="boton" onClick={onVolver}>
-          Volver a venta
-        </button>
-      </section>
-    </main>
   );
 }
