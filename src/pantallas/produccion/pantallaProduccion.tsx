@@ -1,3 +1,6 @@
+import { navegarPestanas } from '../../componentes/pestanas';
+import { Esqueleto } from '../../componentes/retroalimentacion';
+import { notificar } from '../../componentes/notificaciones';
 import { useEffect, useMemo, useState } from 'react';
 import { ulid } from 'ulid';
 import { ErrorApi } from '../../api/cliente';
@@ -15,7 +18,6 @@ import {
   type ReporteVencimientosApi,
 } from '../../api/panaderia';
 import { Icono, IconoProducto } from '../../componentes/iconos';
-import { formatearDinero } from '../../modelos/dinero';
 import {
   creadoAhora,
   fechaHoy,
@@ -48,11 +50,6 @@ const ETIQUETA_MOTIVO: Record<MotivoDescarte, string> = {
   vencido: 'Vencido',
 };
 
-interface Aviso {
-  tipo: 'ok' | 'error';
-  texto: string;
-}
-
 function mensajeDe(error: unknown): string {
   if (error instanceof ErrorApi) {
     return error.message;
@@ -71,7 +68,6 @@ export default function PantallaProduccion() {
     useState<ReporteVencimientosApi | null>(null);
   const [cargando, setCargando] = useState(true);
   const [errorDia, setErrorDia] = useState('');
-  const [aviso, setAviso] = useState<Aviso | null>(null);
   const [recarga, setRecarga] = useState(0);
 
   // Carga del día: lotes, merma y vencimientos.
@@ -116,10 +112,10 @@ export default function PantallaProduccion() {
     };
   }, [fecha, recarga]);
 
-  const recargar = (nuevoAviso: Aviso) => {
+  const recargar = (texto?: string) => {
     setCargando(true);
     setErrorDia('');
-    setAviso(nuevoAviso);
+    if (texto) notificar(texto);
     setRecarga((valor) => valor + 1);
   };
 
@@ -144,7 +140,7 @@ export default function PantallaProduccion() {
             {hornadas.length} lotes · {totalProducido} unidades
           </span>
 
-          <div className="segmentado" role="tablist" aria-label="Secciones de producción">
+          <div className="segmentado" role="tablist" onKeyDown={navegarPestanas} aria-label="Secciones de producción">
             {(
               [
                 ['hornadas', 'Hornadas'],
@@ -157,10 +153,18 @@ export default function PantallaProduccion() {
                 type="button"
                 role="tab"
                 aria-selected={pestana === valor}
+                tabIndex={pestana === valor ? 0 : -1}
+                id={`produccion-tab-${valor}`}
+                aria-controls="produccion-contenido"
                 className={pestana === valor ? 'activo' : ''}
                 onClick={() => setPestana(valor)}
               >
                 {etiqueta}
+                <span className="segmentado__cuenta">{{
+                  hornadas: hornadas.length,
+                  merma: descartes.length,
+                  vencimientos: reporteVencimientos?.lotes.length ?? 0,
+                }[valor]}</span>
               </button>
             ))}
           </div>
@@ -171,59 +175,55 @@ export default function PantallaProduccion() {
         <p className="aviso aviso--auth" role="alert">
           <Icono nombre="alerta" />
           {errorDia}
+          <button type="button" className="boton boton--fantasma" onClick={() => recargar()}>Reintentar</button>
         </p>
       )}
 
-      {aviso && (
-        <p
-          className={`aviso ${aviso.tipo === 'ok' ? 'aviso--estado' : 'aviso--auth'}`}
-          role="status"
-        >
-          <Icono nombre={aviso.tipo === 'ok' ? 'check' : 'alerta'} />
-          {aviso.texto}
-        </p>
-      )}
+      <div className="contenido-pestana" id="produccion-contenido" role="tabpanel"
+        aria-labelledby={`produccion-tab-${pestana}`} tabIndex={0}>
+        {pestana === 'hornadas' && (
+          <section className="dos-columnas">
+            <PanelLotes
+              cargando={cargando}
+              hornadas={hornadas}
+              nombreDe={nombreDe}
+              hoy={fecha}
+            />
+            <FormularioHornada
+              productos={productos}
+              fecha={fecha}
+              onRegistrada={recargar}
+            />
+          </section>
+        )}
 
-      {pestana === 'hornadas' && (
-        <section className="dos-columnas">
-          <PanelLotes
+        {pestana === 'merma' && (
+          <section className="dos-columnas">
+            <PanelMerma
+              cargando={cargando}
+              descartes={descartes}
+              nombreDe={nombreDe}
+            />
+            <FormularioMerma
+              fecha={fecha}
+              hornadas={hornadas}
+              descartes={descartes}
+              nombreDe={nombreDe}
+              onRegistrada={recargar}
+            />
+          </section>
+        )}
+
+        {pestana === 'vencimientos' && (
+          <PanelVencimientos
             cargando={cargando}
-            hornadas={hornadas}
+            reporte={reporteVencimientos}
             nombreDe={nombreDe}
-            hoy={fecha}
+            onHornadas={() => setPestana('hornadas')}
+            onRecargar={() => recargar()}
           />
-          <FormularioHornada
-            productos={productos}
-            fecha={fecha}
-            onRegistrada={(texto) => recargar({ tipo: 'ok', texto })}
-          />
-        </section>
-      )}
-
-      {pestana === 'merma' && (
-        <section className="dos-columnas">
-          <PanelMerma
-            cargando={cargando}
-            descartes={descartes}
-            nombreDe={nombreDe}
-          />
-          <FormularioMerma
-            fecha={fecha}
-            hornadas={hornadas}
-            descartes={descartes}
-            nombreDe={nombreDe}
-            onRegistrada={(texto) => recargar({ tipo: 'ok', texto })}
-          />
-        </section>
-      )}
-
-      {pestana === 'vencimientos' && (
-        <PanelVencimientos
-          cargando={cargando}
-          reporte={reporteVencimientos}
-          nombreDe={nombreDe}
-        />
-      )}
+        )}
+      </div>
     </main>
   );
 }
@@ -256,61 +256,33 @@ function PanelLotes({
       </header>
 
       {cargando ? (
-        <p className="cargando">
-          <Icono nombre="reloj" /> Cargando lotes…
-        </p>
+        <Esqueleto texto="Cargando lotes…" />
       ) : hornadas.length === 0 ? (
         <div className="vacio">
           <span className="vacio__icono">
             <Icono nombre="trigo" />
           </span>
           <strong>Todavía no hay hornadas</strong>
-          <p>Registra la primera del día desde el formulario.</p>
+          <a className="boton boton--fantasma" href="#nueva-hornada-titulo">Nueva hornada</a>
         </div>
       ) : (
-        <div className="tabla-envoltura">
-          <table className="tabla">
-            <thead>
-              <tr>
-                <th scope="col">Producto</th>
-                <th scope="col" className="tabla__num">
-                  Unidades
-                </th>
-                <th scope="col">Hora</th>
-                <th scope="col">Vence</th>
-              </tr>
-            </thead>
-            <tbody>
-              {hornadas.map((hornada) => {
-                const estado = estadoDeVencimiento(
-                  hornada.fecha_vencimiento,
-                  hoy,
-                );
-
-                return (
-                  <tr key={hornada._id}>
-                    <td>
-                      <span className="tabla__producto">
-                        <IconoProducto id={hornada.producto_id} />
-                        <span>{nombreDe(hornada.producto_id)}</span>
-                      </span>
-                    </td>
-                    <td className="tabla__num tabla__fuerte">
-                      {hornada.unidades}
-                    </td>
-                    <td>{horaLocal(hornada.creado_en)}</td>
-                    <td>
-                      <span className={`estado ${CLASE_VENCIMIENTO[estado]}`}>
-                        {fechaLegible(hornada.fecha_vencimiento)} ·{' '}
-                        {ETIQUETA_VENCIMIENTO[estado]}
-                      </span>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
+        <ul className="lotes">
+          {hornadas.map((hornada) => {
+            const estado = estadoDeVencimiento(hornada.fecha_vencimiento, hoy);
+            return (
+              <li key={hornada._id} className="lote">
+                <span className="producto-icono"><IconoProducto id={hornada.producto_id} /></span>
+                <div>
+                  <strong>{nombreDe(hornada.producto_id)}</strong>
+                  <p>{hornada.unidades} unidades · {horaLocal(hornada.creado_en)}</p>
+                </div>
+                <span className={`estado ${CLASE_VENCIMIENTO[estado]}`}>
+                  {ETIQUETA_VENCIMIENTO[estado]} · {fechaLegible(hornada.fecha_vencimiento)}
+                </span>
+              </li>
+            );
+          })}
+        </ul>
       )}
     </section>
   );
@@ -327,6 +299,7 @@ function FormularioHornada({
 }) {
   const [productoElegido, setProductoElegido] = useState<string | null>(null);
   const [unidades, setUnidades] = useState(0);
+  const [hora, setHora] = useState('');
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState('');
 
@@ -334,7 +307,8 @@ function FormularioHornada({
   const productoId = productoElegido ?? productos[0]?.id ?? '';
   const producto = productos.find((item) => item.id === productoId);
   const puedeGuardar =
-    Boolean(producto) && unidades > 0 && unidades <= 100_000 && !guardando;
+    Boolean(producto) && unidades > 0 && unidades <= 100_000 &&
+    (hora === '' || /^([01]\d|2[0-3]):[0-5]\d$/.test(hora)) && !guardando;
 
   const registrar = async () => {
     if (!producto || !puedeGuardar) {
@@ -349,15 +323,17 @@ function FormularioHornada({
         operacion_id: ulid(),
         producto_id: producto.id,
         unidades,
-        creado_local: creadoAhora(),
+        creado_local: hora ? new Date(`${fecha}T${hora}:00-06:00`).toISOString() : creadoAhora(),
       });
 
       setUnidades(0);
+      setHora('');
       onRegistrada(
         `Hornada registrada: ${unidades} × ${producto.nombre}.`,
       );
     } catch (fallo) {
       setError(mensajeDe(fallo));
+      notificar(mensajeDe(fallo), 'error');
     } finally {
       setGuardando(false);
     }
@@ -370,7 +346,7 @@ function FormularioHornada({
     >
       <header className="panel__cabecera">
         <div>
-          <h2 id="nueva-hornada-titulo">Nueva hornada</h2>
+          <h2 id="nueva-hornada-titulo" tabIndex={-1}>Nueva hornada</h2>
           <p className="nota">Registra lo que acaba de salir del horno.</p>
         </div>
         <Icono nombre="produccion" />
@@ -385,12 +361,12 @@ function FormularioHornada({
           <>
             <div>
               <p className="kpi__etiqueta">Producto</p>
-              <div className="pildanas" style={{ marginTop: 8 }}>
+              <div className="selector-productos">
                 {productos.map((item) => (
                   <button
                     key={item.id}
                     type="button"
-                    className={`pildana ${item.id === productoId ? 'activa' : ''}`}
+                    className={`seleccion-producto ${item.id === productoId ? 'activa' : ''}`}
                     aria-pressed={item.id === productoId}
                     onClick={() => setProductoElegido(item.id)}
                   >
@@ -413,9 +389,19 @@ function FormularioHornada({
               </div>
             </div>
 
-            <p className="nota">
-              {producto
-                ? `Precio de venta: ${formatearDinero(producto.precio_centavos)} · Día de negocio: ${fechaLegible(fecha)}`
+            <div className="pildanas" aria-label="Sumar unidades">
+              {[6, 12, 24].map((cantidad) => (
+                <button type="button" key={cantidad} className="pildana"
+                  onClick={() => setUnidades((actual) => Math.min(100_000, actual + cantidad))}>+{cantidad}</button>
+              ))}
+            </div>
+            <label className="campo">
+              <span>Hora de la hornada (El Salvador)</span>
+              <input type="time" className="selector" value={hora} onChange={(e) => setHora(e.target.value)} />
+              {!hora && <small>Si dejas la hora en blanco, se usará la hora del registro.</small>}
+            </label>
+            <p className="resumen-hornada" aria-live="polite">
+              {producto ? `${unidades} unidades de ${producto.nombre} · ${fechaLegible(fecha)} · ${hora || 'hora del registro'}`
                 : 'Elige un producto para continuar.'}
             </p>
 
@@ -471,16 +457,14 @@ function PanelMerma({
       </header>
 
       {cargando ? (
-        <p className="cargando">
-          <Icono nombre="reloj" /> Cargando descartes…
-        </p>
+        <Esqueleto texto="Cargando descartes…" />
       ) : descartes.length === 0 ? (
         <div className="vacio">
           <span className="vacio__icono">
             <Icono nombre="check" />
           </span>
           <strong>Sin merma registrada</strong>
-          <p>Todo lo producido sigue disponible.</p>
+          <a className="boton boton--fantasma" href="#registrar-merma-titulo">Registrar merma</a>
         </div>
       ) : (
         <div className="tabla-envoltura">
@@ -576,6 +560,7 @@ function FormularioMerma({
       );
     } catch (fallo) {
       setError(mensajeDe(fallo));
+      notificar(mensajeDe(fallo), 'error');
     } finally {
       setGuardando(false);
     }
@@ -588,7 +573,7 @@ function FormularioMerma({
     >
       <header className="panel__cabecera">
         <div>
-          <h2 id="registrar-merma-titulo">Registrar merma</h2>
+          <h2 id="registrar-merma-titulo" tabIndex={-1}>Registrar merma</h2>
           <p className="nota">Solo sobre lotes de hoy.</p>
         </div>
         <Icono nombre="alerta" />
@@ -689,17 +674,19 @@ function PanelVencimientos({
   cargando,
   reporte,
   nombreDe,
+  onHornadas,
+  onRecargar,
 }: {
   cargando: boolean;
   reporte: ReporteVencimientosApi | null;
   nombreDe: (id: string) => string;
+  onHornadas: () => void;
+  onRecargar: () => void;
 }) {
   if (cargando) {
     return (
       <section className="panel">
-        <p className="cargando">
-          <Icono nombre="reloj" /> Calculando vencimientos…
-        </p>
+        <Esqueleto texto="Calculando vencimientos…" />
       </section>
     );
   }
@@ -712,7 +699,7 @@ function PanelVencimientos({
             <Icono nombre="alerta" />
           </span>
           <strong>No se pudo leer el reporte</strong>
-          <p>Revisa la conexión y vuelve a intentarlo.</p>
+          <button type="button" className="boton boton--fantasma" onClick={onRecargar}>Reintentar</button>
         </div>
       </section>
     );
@@ -766,7 +753,7 @@ function PanelVencimientos({
               <Icono nombre="check" />
             </span>
             <strong>No hay lotes activos</strong>
-            <p>Registra hornadas para empezar a controlar vencimientos.</p>
+            <button type="button" className="boton boton--fantasma" onClick={onHornadas}>Ver hornadas</button>
           </div>
         ) : (
           <div className="tabla-envoltura">

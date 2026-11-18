@@ -1,3 +1,5 @@
+import { Esqueleto } from '../../componentes/retroalimentacion';
+import { notificar } from '../../componentes/notificaciones';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { ErrorApi } from '../../api/cliente';
 import {
@@ -45,8 +47,10 @@ export default function PantallaCierre() {
   const [cargando, setCargando] = useState(true);
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState('');
-  const [aviso, setAviso] = useState('');
   const [recarga, setRecarga] = useState(0);
+  const dialogo = useRef<HTMLDialogElement>(null);
+  const titulo = useRef<HTMLHeadingElement>(null);
+  const bloqueo = useRef(false);
   const inicializado = useRef(false);
 
   // Estado del día + merma ya registrada (para precargar el formulario).
@@ -124,22 +128,22 @@ export default function PantallaCierre() {
   const cerrado = Boolean(estado?.cerrado && estado.cierre);
 
   const puedeCerrar =
-    !guardando &&
+    !cerrado && !guardando &&
     filas.length > 0 &&
     !hayNegativa &&
     (!hayDiferencia || confirmo);
 
   const cerrar = async () => {
-    if (!puedeCerrar) {
+    if (!puedeCerrar || bloqueo.current) {
       return;
     }
 
+    bloqueo.current = true;
     setGuardando(true);
     setError('');
-    setAviso('');
 
     try {
-      await cerrarDia({
+      const respuesta = await cerrarDia({
         fecha,
         descartadas: filas
           .filter((fila) => fila.descartadas > 0)
@@ -150,15 +154,43 @@ export default function PantallaCierre() {
         confirmo_diferencia: confirmo,
       });
 
-      setAviso('Día cerrado. El resumen ya no se puede modificar.');
-      setCargando(true);
-      setRecarga((valor) => valor + 1);
+      dialogo.current?.close();
+      setEstado((actual) => ({
+        fecha,
+        cerrado: true,
+        cierre: respuesta.cierre,
+        por_producto: actual?.por_producto ?? [],
+      }));
+      titulo.current?.focus();
+      notificar('Día cerrado. El resumen está disponible para consulta.');
     } catch (fallo) {
+      dialogo.current?.close();
       setError(mensajeDe(fallo));
+      notificar(mensajeDe(fallo), 'error');
     } finally {
+      bloqueo.current = false;
       setGuardando(false);
     }
   };
+
+  const resumen = estado?.cierre?.por_producto ?? filas;
+  const indicadores = [
+    ['Producidas', resumen.reduce((total, fila) => total + fila.producidas, 0)],
+    ['Vendidas', resumen.reduce((total, fila) => total + fila.vendidas, 0)],
+    ['Descartadas', resumen.reduce((total, fila) => total + fila.descartadas, 0)],
+    [cerrado ? 'Merma oficial' : 'Merma estimada',
+      formatearDinero(estado?.cierre?.total_merma_centavos ?? totalMerma)],
+  ];
+  const resumenDia = (
+    <div className="kpis" aria-label="Resumen del día">
+      {indicadores.map(([etiqueta, valor]) => (
+        <div className="kpi kpi--acento" key={etiqueta}>
+          <span className="kpi__etiqueta">{etiqueta}</span>
+          <strong className="kpi__valor">{valor}</strong>
+        </div>
+      ))}
+    </div>
+  );
 
   return (
     <main className="encargado">
@@ -168,12 +200,12 @@ export default function PantallaCierre() {
             <Icono nombre="reloj" />
             {fechaLarga(fecha)}
           </p>
-          <h1>Cierre</h1>
+          <h1 ref={titulo} tabIndex={-1}>Cierre</h1>
         </div>
 
         <div className="encargado__acciones">
           <span className={`estado ${cerrado ? 'estado--cerrado' : 'estado--abierto'}`}>
-            {cerrado ? 'Día cerrado' : 'Día abierto'}
+            {cargando ? 'Consultando día' : cerrado ? 'Día cerrado' : estado ? 'Día abierto' : 'Estado sin confirmar'}
           </span>
           {cerrado && estado?.cierre && (
             <span className="chip">
@@ -190,19 +222,10 @@ export default function PantallaCierre() {
         </p>
       )}
 
-      {aviso && (
-        <p className="aviso aviso--estado" role="status">
-          <Icono nombre="check" />
-          {aviso}
-        </p>
-      )}
+      {!cargando && estado && resumenDia}
 
       {cargando ? (
-        <section className="panel">
-          <p className="cargando">
-            <Icono nombre="reloj" /> Calculando el día…
-          </p>
-        </section>
+        <section className="panel"><Esqueleto texto="Calculando el día…" /></section>
       ) : cerrado && estado?.cierre ? (
         <ResumenCerrado cierre={estado.cierre} nombreDe={nombreDe} />
       ) : (
@@ -225,6 +248,11 @@ export default function PantallaCierre() {
                 </span>
                 <strong>No hay datos para cerrar</strong>
                 <p>Registra hornadas y ventas antes de cerrar el día.</p>
+                <button type="button" className="boton boton--fantasma" onClick={() => {
+                  setError('');
+                  setCargando(true);
+                  setRecarga((valor) => valor + 1);
+                }}>Actualizar conteo</button>
               </div>
             ) : (
               <div className="tabla-envoltura">
@@ -251,7 +279,7 @@ export default function PantallaCierre() {
                   </thead>
                   <tbody>
                     {filas.map((fila) => (
-                      <tr key={fila.producto_id}>
+                      <tr key={fila.producto_id} className={fila.diferencia ? 'fila-diferencia' : undefined}>
                         <td>
                           <span className="tabla__producto">
                             <IconoProducto id={fila.producto_id} />
@@ -288,9 +316,7 @@ export default function PantallaCierre() {
                         </td>
                         <td
                           className={`tabla__num ${
-                            fila.diferencia < 0
-                              ? 'tabla__negativo'
-                              : 'tabla__fuerte'
+                            fila.diferencia !== 0 ? 'tabla__negativo' : 'tabla__cuadra'
                           }`}
                         >
                           {fila.diferencia}
@@ -355,7 +381,7 @@ export default function PantallaCierre() {
                 type="button"
                 className="boton boton--principal"
                 disabled={!puedeCerrar}
-                onClick={() => void cerrar()}
+                onClick={() => dialogo.current?.showModal()}
               >
                 <Icono nombre="cierre" />
                 {guardando ? 'Cerrando…' : 'Confirmar cierre del día'}
@@ -369,6 +395,20 @@ export default function PantallaCierre() {
           </aside>
         </section>
       )}
+      <dialog ref={dialogo} className="dialogo-cierre" aria-labelledby="cierre-dialogo-titulo"
+        aria-describedby="cierre-dialogo-aviso" onCancel={(evento) => { if (guardando) evento.preventDefault(); }}>
+        <h2 id="cierre-dialogo-titulo">Confirmar cierre del día</h2>
+        <p className="aviso aviso--advertencia" id="cierre-dialogo-aviso">
+          <Icono nombre="alerta" /> Esta acción es irreversible. Las ventas tardías se asignarán al siguiente día abierto.
+        </p>
+        {resumenDia}
+        <div className="pildanas">
+          <button type="button" className="boton boton--fantasma" autoFocus disabled={guardando}
+            onClick={() => dialogo.current?.close()}>Cancelar</button>
+          <button type="button" className="boton boton--principal" disabled={!puedeCerrar}
+            onClick={() => void cerrar()}>{guardando ? 'Cerrando…' : 'Cerrar definitivamente'}</button>
+        </div>
+      </dialog>
     </main>
   );
 }
@@ -420,7 +460,7 @@ function ResumenCerrado({
           </thead>
           <tbody>
             {cierre.por_producto.map((producto) => (
-              <tr key={producto.producto_id}>
+              <tr key={producto.producto_id} className={producto.diferencia ? 'fila-diferencia' : undefined}>
                 <td>
                   <span className="tabla__producto">
                     <IconoProducto id={producto.producto_id} />
@@ -430,7 +470,7 @@ function ResumenCerrado({
                 <td className="tabla__num">{producto.producidas}</td>
                 <td className="tabla__num">{producto.vendidas}</td>
                 <td className="tabla__num">{producto.descartadas}</td>
-                <td className="tabla__num tabla__fuerte">
+                <td className={`tabla__num ${producto.diferencia ? 'tabla__negativo' : 'tabla__cuadra'}`}>
                   {producto.diferencia}
                 </td>
                 <td className="tabla__num">

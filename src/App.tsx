@@ -1,3 +1,4 @@
+import { Toasts } from './componentes/retroalimentacion';
 import { useEffect, useState } from 'react';
 import {
   EVENTO_SESION_EXPIRADA,
@@ -113,8 +114,9 @@ function Aplicacion({ sesion, onSalir }: PropsAplicacion) {
         onSalir={onSalir}
       />
 
+      <Toasts />
       <div className="app-contenido">
-        {pantallaVisible === 'venta' && <PantallaVenta />}
+        {pantallaVisible === 'venta' && <PantallaVenta consultarStock={sesion.usuario.rol === 'encargado'} />}
         {pantallaVisible === 'produccion' && <PantallaProduccion />}
         {pantallaVisible === 'cierre' && <PantallaCierre />}
         {pantallaVisible === 'reportes' && <PantallaReportes />}

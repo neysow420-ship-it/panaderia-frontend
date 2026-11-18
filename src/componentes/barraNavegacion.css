@@ -50,14 +50,6 @@
   letter-spacing: -0.025em;
 }
 
-.barra-identidad span {
-  color: var(--tinta-suave);
-  font-size: 0.57rem;
-  font-weight: 800;
-  letter-spacing: 0.17em;
-  text-transform: uppercase;
-}
-
 .barra-navegacion {
   display: flex;
   align-items: stretch;
@@ -136,21 +128,6 @@
   align-items: center;
   gap: 8px;
   min-width: 0;
-}
-
-.barra-avatar {
-  display: grid;
-  place-items: center;
-  width: 34px;
-  height: 34px;
-  flex: none;
-  border: 1px solid var(--linea-fuerte);
-  border-radius: 50%;
-  color: var(--acento);
-  background: var(--superficie);
-  font-family: var(--display);
-  font-size: 1rem;
-  font-weight: 600;
 }
 
 .barra-datos {
@@ -258,11 +235,6 @@
     height: 36px;
   }
 
-  .barra-identidad span,
-  .barra-datos .barra-rol {
-    display: none;
-  }
-
   .barra-navegacion {
     gap: 17px;
   }
@@ -301,4 +273,32 @@
   .barra-navegacion button {
     font-size: 0.58rem;
   }
+}
+
+.barra {
+  min-height: var(--altura-barra);
+  padding-block: 8px;
+  transition: box-shadow var(--transicion);
+}
+
+.barra--desplazada { box-shadow: var(--sombra); }
+.barra-navegacion button,
+.barra-salir { min-height: var(--tactil); min-width: var(--tactil); font-size: var(--texto-etiqueta); }
+.barra-navegacion button:focus-visible { outline-offset: -3px; }
+.barra-datos .barra-rol { display: block; font-size: var(--texto-etiqueta); }
+.barra-datos strong { max-width: 22ch; }
+
+@media (max-width: 1080px) {
+  .barra { gap: 0 var(--espacio-3); padding-block: 6px 0; }
+  .barra-navegacion { justify-content: start; padding: 0; }
+}
+
+@media (max-width: 480px) {
+  .barra-marca { gap: var(--espacio-2); }
+  .barra-identidad strong { font-size: 1rem; }
+  .barra-navegacion { justify-content: space-between; gap: var(--espacio-1); }
+  .barra-navegacion button { letter-spacing: .035em; }
+  .barra-navegacion button .icono { display: none; }
+  .barra-datos strong { max-width: 10ch; }
+  .barra-sesion { gap: var(--espacio-1); }
 }

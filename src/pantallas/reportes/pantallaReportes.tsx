@@ -1,3 +1,5 @@
+import { navegarPestanas } from '../../componentes/pestanas';
+import { Esqueleto } from '../../componentes/retroalimentacion';
 import { useEffect, useMemo, useState } from 'react';
 import { ErrorApi } from '../../api/cliente';
 import {
@@ -35,6 +37,45 @@ function mensajeDe(error: unknown): string {
   return 'No se pudieron cargar los reportes.';
 }
 
+const DIA_MS = 86_400_000;
+
+function resumirVentas(datos: ReporteVentasApi) {
+  const productos = datos.dias.flatMap((dia) => dia.por_producto);
+  const dias = datos.dias.filter((dia) => dia.por_producto.some((producto) => producto.total_centavos > 0)).length;
+  return {
+    importe: datos.total_centavos,
+    unidades: productos.reduce((total, producto) => total + producto.unidades, 0),
+    promedio: dias ? Math.round(datos.total_centavos / dias) : 0,
+    productos: new Set(productos.map((producto) => producto.producto_id)).size,
+  };
+}
+
+function resumirMerma(datos: ReporteMermaApi) {
+  const cerrados = datos.dias.filter((dia) => dia.cerrado).length;
+  return {
+    importe: datos.total_merma_centavos,
+    descartadas: datos.dias.flatMap((dia) => dia.por_producto)
+      .reduce((total, producto) => total + producto.descartadas, 0),
+    cerrados,
+    promedio: cerrados ? Math.round(datos.total_merma_centavos / cerrados) : 0,
+  };
+}
+
+function descargarCsv(nombre: string, filas: (string | number)[][]) {
+  const celda = (valor: string | number) => {
+    const texto = String(valor);
+    const seguro = typeof valor === 'string' && /^[\s]*[=+@-]|^[\t\r\n]/.test(texto) ? "'" + texto : texto;
+    return '"' + seguro.replaceAll('"', '""') + '"';
+  };
+  const contenido = filas.map((fila) => fila.map(celda).join(',')).join('\r\n');
+  const url = URL.createObjectURL(new Blob(['\uFEFF', contenido], { type: 'text/csv;charset=utf-8' }));
+  const enlace = document.createElement('a');
+  enlace.href = url;
+  enlace.download = nombre;
+  enlace.click();
+  window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
 export default function PantallaReportes() {
   const { nombreDe } = useCatalogo();
   const [hoy] = useState(() => fechaHoy());
@@ -44,26 +85,28 @@ export default function PantallaReportes() {
   const [hasta, setHasta] = useState(() => fechaHoy());
   const [ventas, setVentas] = useState<ReporteVentasApi | null>(null);
   const [merma, setMerma] = useState<ReporteMermaApi | null>(null);
+  const [ventasAnteriores, setVentasAnteriores] = useState<ReporteVentasApi | null>(null);
+  const [mermaAnterior, setMermaAnterior] = useState<ReporteMermaApi | null>(null);
+  const [recarga, setRecarga] = useState(0);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState('');
 
-  const rangoValido = desde <= hasta;
+  const rangoValido = /^\d{4}-\d{2}-\d{2}$/.test(desde) && /^\d{4}-\d{2}-\d{2}$/.test(hasta) && desde <= hasta && hasta <= hoy;
+
+  const limpiarComparacion = () => {
+    setVentasAnteriores(null);
+    setMermaAnterior(null);
+  };
 
   const elegirRango = (nuevo: Rango) => {
     setRango(nuevo);
+    const inicio = nuevo === 'hoy' ? hoy : nuevo === 'semana' ? sumarDias(hoy, -6) : inicioDeMes(hoy);
+    if (inicio === desde && hoy === hasta) return;
     setCargando(true);
     setError('');
-
-    if (nuevo === 'hoy') {
-      setDesde(hoy);
-      setHasta(hoy);
-    } else if (nuevo === 'semana') {
-      setDesde(sumarDias(hoy, -6));
-      setHasta(hoy);
-    } else if (nuevo === 'mes') {
-      setDesde(inicioDeMes(hoy));
-      setHasta(hoy);
-    }
+    limpiarComparacion();
+    setDesde(inicio);
+    setHasta(hoy);
   };
 
   useEffect(() => {
@@ -73,36 +116,35 @@ export default function PantallaReportes() {
 
     let activo = true;
 
+    const dias = Math.round((Date.parse(hasta) - Date.parse(desde)) / DIA_MS) + 1;
+    const hastaAnterior = sumarDias(desde, -1);
+    const desdeAnterior = sumarDias(desde, -dias);
+
     void Promise.allSettled([
       reporteVentas(desde, hasta),
       reporteMerma(desde, hasta),
     ]).then(([datosVentas, datosMerma]) => {
-      if (!activo) {
-        return;
-      }
-
-      const fallos: string[] = [];
-
-      if (datosVentas.status === 'fulfilled') {
-        setVentas(datosVentas.value);
-      } else {
-        fallos.push(mensajeDe(datosVentas.reason));
-      }
-
-      if (datosMerma.status === 'fulfilled') {
-        setMerma(datosMerma.value);
-      } else {
-        fallos.push(mensajeDe(datosMerma.reason));
-      }
-
-      setError(fallos[0] ?? '');
+      if (!activo) return;
+      setVentas(datosVentas.status === 'fulfilled' ? datosVentas.value : null);
+      setMerma(datosMerma.status === 'fulfilled' ? datosMerma.value : null);
+      const fallo = [datosVentas, datosMerma].find((resultado) => resultado.status === 'rejected');
+      setError(fallo ? mensajeDe(fallo.reason) : '');
       setCargando(false);
+    });
+
+    void Promise.allSettled([
+      reporteVentas(desdeAnterior, hastaAnterior),
+      reporteMerma(desdeAnterior, hastaAnterior),
+    ]).then(([ventasPrevias, mermaPrevia]) => {
+      if (!activo) return;
+      setVentasAnteriores(ventasPrevias.status === 'fulfilled' && ventasPrevias.value.desde === desdeAnterior ? ventasPrevias.value : null);
+      setMermaAnterior(mermaPrevia.status === 'fulfilled' && mermaPrevia.value.desde === desdeAnterior ? mermaPrevia.value : null);
     });
 
     return () => {
       activo = false;
     };
-  }, [desde, hasta, rangoValido]);
+  }, [desde, hasta, rangoValido, recarga]);
 
   const ventasPorDia = useMemo(() => {
     const dias = ventas?.dias ?? [];
@@ -185,26 +227,52 @@ export default function PantallaReportes() {
       .sort((a, b) => b.merma_centavos - a.merma_centavos);
   }, [merma]);
 
-  const unidadesVendidas = useMemo(
-    () =>
-      (ventas?.dias ?? []).reduce(
-        (total, dia) =>
-          total +
-          dia.por_producto.reduce(
-            (suma, producto) => suma + producto.unidades,
-            0,
-          ),
-        0,
-      ),
-    [ventas],
-  );
-
   const diasCerrados = (merma?.dias ?? []).filter((dia) => dia.cerrado).length;
-  const descartadas = productosConMerma.reduce(
-    (total, fila) => total + fila.descartadas,
-    0,
-  );
+  const descartadas = productosConMerma.reduce((total, fila) => total + fila.descartadas, 0);
   const diasConVentas = ventasPorDia.filter((dia) => dia.valor > 0).length;
+  const totalDias = rangoValido ? Math.round((Date.parse(hasta) - Date.parse(desde)) / DIA_MS) + 1 : 0;
+  const ventasPrevias = ventasAnteriores && resumirVentas(ventasAnteriores);
+  const mermaPrevia = mermaAnterior && resumirMerma(mermaAnterior);
+  const importeVentas = ventas?.total_centavos ?? 0;
+  const importeMerma = merma?.total_merma_centavos ?? 0;
+  const unidadesVendidas = productosVendidos.reduce((total, fila) => total + fila.unidades, 0);
+  const promedioVentas = diasConVentas ? Math.round(importeVentas / diasConVentas) : 0;
+  const promedioMerma = diasCerrados ? Math.round(importeMerma / diasCerrados) : 0;
+  const estrella = productosVendidos[0];
+
+  function exportar() {
+    if (pestana === 'ventas' && ventas) {
+      descargarCsv(`ventas-${desde}-${hasta}.csv`, [
+        ['Fecha', 'Producto', 'Unidades', 'Importe (USD)'],
+        ...ventas.dias.flatMap((dia) => dia.por_producto.map((producto) => [
+          dia.fecha, nombreDe(producto.producto_id), producto.unidades, (producto.total_centavos / 100).toFixed(2),
+        ])),
+      ]);
+    } else if (pestana === 'merma' && merma) {
+      descargarCsv(`merma-${desde}-${hasta}.csv`, [
+        ['Fecha', 'Producto', 'Producidas', 'Vendidas', 'Descartadas', 'Merma (USD)'],
+        ...merma.dias.flatMap((dia) => dia.por_producto.map((producto) => [
+          dia.fecha, nombreDe(producto.producto_id), producto.producidas, producto.vendidas,
+          producto.descartadas, (producto.merma_centavos / 100).toFixed(2),
+        ])),
+      ]);
+    }
+  }
+
+  function reintentar() {
+    setCargando(true);
+    setError('');
+    limpiarComparacion();
+    setRecarga((valor) => valor + 1);
+  }
+
+  function llenarDias(datos: { fecha: string; valor: number }[]) {
+    const porFecha = new Map(datos.map(({ fecha, valor }) => [fecha, valor]));
+    return Array.from({ length: totalDias }, (_, indice) => {
+      const fecha = sumarDias(desde, indice);
+      return { fecha, valor: porFecha.get(fecha) ?? 0 };
+    });
+  }
 
   return (
     <main className="encargado">
@@ -212,13 +280,13 @@ export default function PantallaReportes() {
         <div className="encargado__titulo">
           <p className="encargado__fecha">
             <Icono nombre="reportes" />
-            {fechaLegible(desde)} — {fechaLegible(hasta)}
+            {rangoValido ? `${fechaLegible(desde)} — ${fechaLegible(hasta)}` : 'Rango de fechas'}
           </p>
           <h1>Reportes</h1>
         </div>
 
         <div className="encargado__acciones">
-          <div className="segmentado" role="tablist" aria-label="Tipo de reporte">
+          <div className="segmentado" role="tablist" onKeyDown={navegarPestanas} aria-label="Tipo de reporte">
             {(
               [
                 ['ventas', 'Ventas'],
@@ -230,6 +298,9 @@ export default function PantallaReportes() {
                 type="button"
                 role="tab"
                 aria-selected={pestana === valor}
+                tabIndex={pestana === valor ? 0 : -1}
+                id={`reportes-tab-${valor}`}
+                aria-controls="reportes-contenido"
                 className={pestana === valor ? 'activo' : ''}
                 onClick={() => setPestana(valor)}
               >
@@ -266,6 +337,7 @@ export default function PantallaReportes() {
             max={hasta}
             onChange={(evento) => {
               setDesde(evento.target.value);
+              limpiarComparacion();
               setRango('personalizado');
               setCargando(true);
               setError('');
@@ -283,18 +355,22 @@ export default function PantallaReportes() {
             max={hoy}
             onChange={(evento) => {
               setHasta(evento.target.value);
+              limpiarComparacion();
               setRango('personalizado');
               setCargando(true);
               setError('');
             }}
           />
         </label>
+        <button type="button" className="boton boton--principal"
+          disabled={!rangoValido || cargando || !(pestana === 'ventas' ? ventas : merma)}
+          onClick={exportar}>Exportar CSV</button>
       </div>
 
       {!rangoValido && (
         <p className="aviso aviso--advertencia" role="alert">
           <Icono nombre="alerta" />
-          La fecha inicial no puede ser posterior a la final.
+          Selecciona un rango válido con fecha final hasta hoy.
         </p>
       )}
 
@@ -302,297 +378,292 @@ export default function PantallaReportes() {
         <p className="aviso aviso--auth" role="alert">
           <Icono nombre="alerta" />
           {error}
+          <button type="button" className="boton boton--fantasma" onClick={reintentar}>Reintentar</button>
         </p>
       )}
 
-      {!rangoValido ? null : cargando ? (
-        <section className="panel">
-          <p className="cargando">
-            <Icono nombre="reloj" /> Calculando reportes…
-          </p>
-        </section>
-      ) : pestana === 'ventas' ? (
-        <>
-          <section className="kpis" aria-label="Resumen de ventas">
-            <TarjetaKpi
-              clase="kpi--acento"
-              etiqueta="Vendido"
-              valor={formatearDinero(ventas?.total_centavos ?? 0)}
-              nota={`${diasConVentas} de ${ventasPorDia.length} días con ventas`}
-            />
-            <TarjetaKpi
-              clase="kpi--miel"
-              etiqueta="Unidades"
-              valor={String(unidadesVendidas)}
-              nota="Piezas vendidas en el rango"
-            />
-            <TarjetaKpi
-              clase="kpi--verde"
-              etiqueta="Promedio diario"
-              valor={formatearDinero(
-                diasConVentas === 0
-                  ? 0
-                  : Math.round(
-                      (ventas?.total_centavos ?? 0) / diasConVentas,
-                    ),
-              )}
-              nota="Solo días con ventas"
-            />
-            <TarjetaKpi
-              clase="kpi--verde"
-              etiqueta="Productos"
-              valor={String(productosVendidos.length)}
-              nota="Con movimiento en el rango"
-            />
+      <div className="contenido-pestana" id="reportes-contenido" role="tabpanel"
+        aria-labelledby={`reportes-tab-${pestana}`} tabIndex={0}>
+        {!rangoValido ? null : cargando ? (
+          <section className="panel">
+            <Esqueleto texto="Calculando reportes…" tarjetas />
           </section>
-
-          <section className="panel" aria-labelledby="ventas-por-dia">
-            <header className="panel__cabecera">
-              <div>
-                <h2 id="ventas-por-dia">Ventas por día</h2>
-                <p className="nota">
-                  Importes oficiales del servidor, agrupados por día de negocio.
-                </p>
-              </div>
-            </header>
-            <div className="panel__cuerpo">
-              <GraficoBarras
-                filas={ventasPorDia.map((dia) => ({
-                  etiqueta: fechaLegible(dia.fecha),
-                  valor: dia.valor,
-                  texto: formatearDinero(dia.valor),
-                }))}
-                vacio="No hay ventas en el rango elegido."
+        ) : !(pestana === 'ventas' ? ventas : merma) ? null : pestana === 'ventas' ? (
+          <>
+            <section className="kpis" aria-label="Resumen de ventas">
+              <TarjetaKpi
+                clase="kpi--acento"
+                etiqueta="Vendido"
+                valor={formatearDinero(importeVentas)} comparacion={variacion(importeVentas, ventasPrevias?.importe)}
+                nota={`${diasConVentas} de ${totalDias} días con ventas`}
               />
-            </div>
-          </section>
-
-          <section className="panel" aria-labelledby="ventas-por-producto">
-            <header className="panel__cabecera">
-              <div>
-                <h2 id="ventas-por-producto">Ventas por producto</h2>
-                <p className="nota">Ordenado por importe vendido.</p>
-              </div>
-            </header>
-
-            {productosVendidos.length === 0 ? (
-              <div className="vacio">
-                <span className="vacio__icono">
-                  <Icono nombre="reportes" />
-                </span>
-                <strong>Sin ventas registradas</strong>
-                <p>Prueba con otro rango de fechas.</p>
-              </div>
-            ) : (
-              <div className="tabla-envoltura">
-                <table className="tabla">
-                  <thead>
-                    <tr>
-                      <th scope="col">Producto</th>
-                      <th scope="col" className="tabla__num">
-                        Unidades
-                      </th>
-                      <th scope="col" className="tabla__num">
-                        Importe
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {productosVendidos.map((producto) => (
-                      <tr key={producto.producto_id}>
-                        <td>
-                          <span className="tabla__producto">
-                            <IconoProducto id={producto.producto_id} />
-                            <span>{nombreDe(producto.producto_id)}</span>
-                          </span>
-                        </td>
-                        <td className="tabla__num">{producto.unidades}</td>
-                        <td className="tabla__num tabla__fuerte">
-                          {formatearDinero(producto.total_centavos)}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </section>
-        </>
-      ) : (
-        <>
-          <section className="kpis" aria-label="Resumen de merma">
-            <TarjetaKpi
-              clase="kpi--rojo"
-              etiqueta="Merma"
-              valor={formatearDinero(merma?.total_merma_centavos ?? 0)}
-              nota="Costo de lo descartado"
-            />
-            <TarjetaKpi
-              clase="kpi--miel"
-              etiqueta="Descartadas"
-              valor={String(descartadas)}
-              nota="Unidades retiradas"
-            />
-            <TarjetaKpi
-              clase="kpi--verde"
-              etiqueta="Días cerrados"
-              valor={String(diasCerrados)}
-              nota={`De ${merma?.dias.length ?? 0} días en el rango`}
-            />
-            <TarjetaKpi
-              clase="kpi--verde"
-              etiqueta="Promedio diario"
-              valor={formatearDinero(
-                diasCerrados === 0
-                  ? 0
-                  : Math.round(
-                      (merma?.total_merma_centavos ?? 0) / diasCerrados,
-                    ),
-              )}
-              nota="Solo días cerrados"
-            />
-          </section>
-
-          <section className="panel panel--miel" aria-labelledby="merma-por-dia">
-            <header className="panel__cabecera">
-              <div>
-                <h2 id="merma-por-dia">Merma por día</h2>
-                <p className="nota">
-                  Solo los días cerrados tienen merma calculada.
-                </p>
-              </div>
-            </header>
-            <div className="panel__cuerpo">
-              <GraficoBarras
-                variante="merma"
-                filas={mermaPorDia.map((dia) => ({
-                  etiqueta: fechaLegible(dia.fecha),
-                  valor: dia.valor,
-                  texto: formatearDinero(dia.valor),
-                }))}
-                vacio="No hay cierres en el rango elegido."
+              <TarjetaKpi
+                clase="kpi--miel"
+                etiqueta="Unidades"
+                valor={String(unidadesVendidas)} comparacion={variacion(unidadesVendidas, ventasPrevias?.unidades)}
+                nota="Piezas vendidas en el rango"
               />
-            </div>
-          </section>
+              <TarjetaKpi
+                clase="kpi--verde"
+                etiqueta="Promedio diario"
+                valor={formatearDinero(promedioVentas)} comparacion={variacion(promedioVentas, ventasPrevias?.promedio)}
+                nota="Solo días con ventas"
+              />
+              <TarjetaKpi
+                clase="kpi--verde"
+                etiqueta="Productos"
+                valor={String(productosVendidos.length)} comparacion={variacion(productosVendidos.length, ventasPrevias?.productos)}
+                nota="Con movimiento en el rango"
+              />
+            </section>
 
-          <section className="panel" aria-labelledby="merma-por-producto">
-            <header className="panel__cabecera">
-              <div>
-                <h2 id="merma-por-producto">Merma por producto</h2>
-                <p className="nota">
-                  Compara lo producido, lo vendido y lo descartado.
-                </p>
-              </div>
-            </header>
-
-            {productosConMerma.length === 0 ? (
-              <div className="vacio">
-                <span className="vacio__icono">
-                  <Icono nombre="check" />
-                </span>
-                <strong>Sin merma en el rango</strong>
-                <p>Los días cerrados no registraron descartes.</p>
-              </div>
-            ) : (
-              <div className="tabla-envoltura">
-                <table className="tabla">
-                  <thead>
-                    <tr>
-                      <th scope="col">Producto</th>
-                      <th scope="col" className="tabla__num">
-                        Producidas
-                      </th>
-                      <th scope="col" className="tabla__num">
-                        Vendidas
-                      </th>
-                      <th scope="col" className="tabla__num">
-                        Descartadas
-                      </th>
-                      <th scope="col" className="tabla__num">
-                        Merma
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {productosConMerma.map((producto) => (
-                      <tr key={producto.producto_id}>
-                        <td>
-                          <span className="tabla__producto">
-                            <IconoProducto id={producto.producto_id} />
-                            <span>{nombreDe(producto.producto_id)}</span>
-                          </span>
-                        </td>
-                        <td className="tabla__num">{producto.producidas}</td>
-                        <td className="tabla__num">{producto.vendidas}</td>
-                        <td className="tabla__num">
-                          {producto.descartadas}
-                        </td>
-                        <td className="tabla__num tabla__negativo">
-                          {formatearDinero(producto.merma_centavos)}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+            {estrella && (
+              <aside className="producto-estrella">
+                <span className="producto-icono"><IconoProducto id={estrella.producto_id} /></span>
+                <div><p className="kpi__etiqueta">Producto estrella por importe</p>
+                  <strong>{nombreDe(estrella.producto_id)}</strong></div>
+                <span>{formatearDinero(estrella.total_centavos)} · {estrella.unidades} unidades</span>
+              </aside>
             )}
-          </section>
-        </>
-      )}
+
+            <section className="panel" aria-labelledby="ventas-por-dia">
+              <header className="panel__cabecera">
+                <div>
+                  <h2 id="ventas-por-dia">Ventas por día</h2>
+                  <p className="nota">
+                    Importes oficiales del servidor, agrupados por día de negocio.
+                  </p>
+                </div>
+              </header>
+              <div className="panel__cuerpo">
+                <GraficoBarras filas={llenarDias(ventasPorDia)} hoy={hoy} />
+              </div>
+            </section>
+
+            <section className="panel" aria-labelledby="ventas-por-producto">
+              <header className="panel__cabecera">
+                <div>
+                  <h2 id="ventas-por-producto">Ventas por producto</h2>
+                  <p className="nota">Ordenado por importe vendido.</p>
+                </div>
+              </header>
+
+              {productosVendidos.length === 0 ? (
+                <div className="vacio">
+                  <span className="vacio__icono">
+                    <Icono nombre="reportes" />
+                  </span>
+                  <strong>Sin ventas registradas</strong>
+                  <button type="button" className="boton boton--fantasma" onClick={() => elegirRango(rango === 'semana' ? 'mes' : 'semana')}>Ver {rango === 'semana' ? 'este mes' : '7 días'}</button>
+                </div>
+              ) : (
+                <div className="tabla-envoltura">
+                  <table className="tabla">
+                    <thead>
+                      <tr>
+                        <th scope="col">Producto</th>
+                        <th scope="col" className="tabla__num">
+                          Unidades
+                        </th>
+                        <th scope="col" className="tabla__num">
+                          Importe
+                        </th>
+                        <th scope="col" className="tabla__num">% del total</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {productosVendidos.map((producto) => (
+                        <tr key={producto.producto_id}>
+                          <td>
+                            <span className="tabla__producto">
+                              <IconoProducto id={producto.producto_id} />
+                              <span>{nombreDe(producto.producto_id)}</span>
+                            </span>
+                          </td>
+                          <td className="tabla__num">{producto.unidades}</td>
+                          <td className="tabla__num tabla__fuerte">
+                            {formatearDinero(producto.total_centavos)}
+                          </td>
+                          <td className="tabla__num">
+                            <Proporcion parte={producto.total_centavos} total={importeVentas} />
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </section>
+          </>
+        ) : (
+          <>
+            <section className="kpis" aria-label="Resumen de merma">
+              <TarjetaKpi
+                clase="kpi--rojo"
+                etiqueta="Merma"
+                valor={formatearDinero(importeMerma)} comparacion={variacion(importeMerma, mermaPrevia?.importe)}
+                nota="Costo de lo descartado"
+              />
+              <TarjetaKpi
+                clase="kpi--miel"
+                etiqueta="Descartadas"
+                valor={String(descartadas)} comparacion={variacion(descartadas, mermaPrevia?.descartadas)}
+                nota="Unidades retiradas"
+              />
+              <TarjetaKpi
+                clase="kpi--verde"
+                etiqueta="Días cerrados"
+                valor={String(diasCerrados)} comparacion={variacion(diasCerrados, mermaPrevia?.cerrados)}
+                nota={`De ${totalDias} días en el rango`}
+              />
+              <TarjetaKpi
+                clase="kpi--verde"
+                etiqueta="Promedio diario"
+                valor={formatearDinero(promedioMerma)} comparacion={variacion(promedioMerma, mermaPrevia?.promedio)}
+                nota="Solo días cerrados"
+              />
+            </section>
+
+            <section className="panel panel--miel" aria-labelledby="merma-por-dia">
+              <header className="panel__cabecera">
+                <div>
+                  <h2 id="merma-por-dia">Merma por día</h2>
+                  <p className="nota">
+                    Solo los días cerrados tienen merma calculada.
+                  </p>
+                </div>
+              </header>
+              <div className="panel__cuerpo">
+                <GraficoBarras filas={llenarDias(mermaPorDia)} hoy={hoy} merma />
+              </div>
+            </section>
+
+            <section className="panel" aria-labelledby="merma-por-producto">
+              <header className="panel__cabecera">
+                <div>
+                  <h2 id="merma-por-producto">Merma por producto</h2>
+                  <p className="nota">
+                    Compara lo producido, lo vendido y lo descartado.
+                  </p>
+                </div>
+              </header>
+
+              {productosConMerma.length === 0 ? (
+                <div className="vacio">
+                  <span className="vacio__icono">
+                    <Icono nombre="check" />
+                  </span>
+                  <strong>Sin merma en el rango</strong>
+                  <button type="button" className="boton boton--fantasma" onClick={() => elegirRango(rango === 'semana' ? 'mes' : 'semana')}>Ver {rango === 'semana' ? 'este mes' : '7 días'}</button>
+                </div>
+              ) : (
+                <div className="tabla-envoltura">
+                  <table className="tabla">
+                    <thead>
+                      <tr>
+                        <th scope="col">Producto</th>
+                        <th scope="col" className="tabla__num">
+                          Producidas
+                        </th>
+                        <th scope="col" className="tabla__num">
+                          Vendidas
+                        </th>
+                        <th scope="col" className="tabla__num">
+                          Descartadas
+                        </th>
+                        <th scope="col" className="tabla__num">
+                          Merma
+                        </th>
+                        <th scope="col" className="tabla__num">% del costo</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {productosConMerma.map((producto) => (
+                        <tr key={producto.producto_id}>
+                          <td>
+                            <span className="tabla__producto">
+                              <IconoProducto id={producto.producto_id} />
+                              <span>{nombreDe(producto.producto_id)}</span>
+                            </span>
+                          </td>
+                          <td className="tabla__num">{producto.producidas}</td>
+                          <td className="tabla__num">{producto.vendidas}</td>
+                          <td className="tabla__num">
+                            {producto.descartadas}
+                          </td>
+                          <td className="tabla__num tabla__negativo">
+                            {formatearDinero(producto.merma_centavos)}
+                          </td>
+                          <td className="tabla__num">
+                            <Proporcion parte={producto.merma_centavos} total={importeMerma} />
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </section>
+          </>
+        )}
+      </div>
     </main>
   );
 }
 
-interface FilaBarra {
-  etiqueta: string;
-  valor: number;
-  texto: string;
+const porcentaje = new Intl.NumberFormat('es-SV', { style: 'percent', maximumFractionDigits: 1 });
+
+function variacion(actual: number, anterior?: number) {
+  if (anterior === undefined) return 'Comparación no disponible';
+  if (anterior === 0 && actual > 0) return '↑ Período anterior en cero';
+  if (anterior === actual) return '→ 0 % frente al período anterior';
+  return `${actual > anterior ? '↑' : '↓'} ${porcentaje.format(Math.abs(actual - anterior) / anterior)} frente al período anterior`;
 }
 
-function GraficoBarras({
-  filas,
-  vacio,
-  variante,
-}: {
-  filas: FilaBarra[];
-  vacio: string;
-  variante?: 'merma';
-}) {
-  const maximo = Math.max(...filas.map((fila) => fila.valor), 1);
-  const total = filas.reduce((suma, fila) => suma + fila.valor, 0);
-
-  if (filas.length === 0 || total === 0) {
-    return (
-      <div className="vacio">
-        <span className="vacio__icono">
-          <Icono nombre="reportes" />
-        </span>
-        <strong>Sin datos</strong>
-        <p>{vacio}</p>
-      </div>
-    );
-  }
-
+function Proporcion({ parte, total }: { parte: number; total: number }) {
+  const fraccion = total > 0 ? parte / total : 0;
   return (
-    <div className="barras">
-      {filas.map((fila) => (
-        <div className="barras__fila" key={fila.etiqueta}>
-          <span className="barras__etiqueta">{fila.etiqueta}</span>
-          <span
-            className="barras__pista"
-            role="img"
-            aria-label={`${fila.etiqueta}: ${fila.texto}`}
-          >
-            <span
-              className={`barras__barra ${variante === 'merma' ? 'barras__barra--merma' : ''}`}
-              style={{
-                width: `${Math.max((fila.valor / maximo) * 100, 1)}%`,
-              }}
-            />
-          </span>
-          <span className="barras__valor">{fila.texto}</span>
+    <span className="proporcion">
+      <span className="proporcion__pista" aria-hidden="true">
+        <span style={{ width: `${fraccion * 100}%` }} />
+      </span>
+      {porcentaje.format(fraccion)}
+    </span>
+  );
+}
+
+function GraficoBarras({ filas, hoy, merma = false }: {
+  filas: { fecha: string; valor: number }[];
+  hoy: string;
+  merma?: boolean;
+}) {
+  const pico = filas.reduce((maximo, fila) => Math.max(maximo, fila.valor), 0);
+  const magnitud = 10 ** Math.floor(Math.log10(Math.max(100, pico) / 4));
+  const paso = Math.ceil(Math.max(100, pico) / (magnitud * 4)) * magnitud;
+  const escala = [4, 3, 2, 1, 0].map((nivel) => nivel * paso);
+  return (
+    <div className={`grafico ${merma ? 'grafico--merma' : ''}`}>
+      <div className="grafico__escala" aria-label="Escala en dólares">
+        {escala.map((nivel) => <span key={nivel}>{formatearDinero(nivel)}</span>)}
+      </div>
+      <div className="grafico__desplazable">
+        <div className="grafico__dias">
+          {filas.map(({ fecha, valor }) => {
+            const texto = `${fechaLegible(fecha)} · ${formatearDinero(valor)}`;
+            return (
+              <div className={`grafico__dia ${fecha === hoy ? 'grafico__dia--hoy' : ''}`} key={fecha}>
+                <div className="grafico__columna" tabIndex={0} role="img"
+                  aria-label={`${texto}${fecha === hoy ? ' · Hoy' : ''}`}>
+                  <span className={`grafico__barra ${valor === 0 ? 'grafico__barra--cero' : ''}`}
+                    style={{ height: `${valor / (paso * 4) * 100}%` }} />
+                  <span className="grafico__tooltip" aria-hidden="true">{formatearDinero(valor)}</span>
+                </div>
+                <time dateTime={fecha}>{fecha.slice(8)}/{fecha.slice(5, 7)}{fecha === hoy && <small>Hoy</small>}</time>
+              </div>
+            );
+          })}
         </div>
-      ))}
+      </div>
     </div>
   );
 }
@@ -602,17 +673,20 @@ function TarjetaKpi({
   etiqueta,
   valor,
   nota,
+  comparacion,
 }: {
   clase: string;
   etiqueta: string;
   valor: string;
   nota: string;
+  comparacion: string;
 }) {
   return (
     <div className={`kpi ${clase}`}>
       <span className="kpi__etiqueta">{etiqueta}</span>
       <strong className="kpi__valor">{valor}</strong>
       <span className="kpi__nota">{nota}</span>
+      <span className="kpi__comparacion">{comparacion}</span>
     </div>
   );
 }

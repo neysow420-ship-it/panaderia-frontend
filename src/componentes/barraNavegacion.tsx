@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import type { Sesion } from '../auth/sesion';
 import { Icono, type NombreIcono } from './iconos';
 import './barraNavegacion.css';
@@ -32,17 +33,23 @@ export default function BarraNavegacion({
   onSalir,
 }: Props) {
   const esEncargado = sesion.usuario.rol === 'encargado';
-  const inicial = sesion.usuario.nombre.trim().charAt(0).toUpperCase() || 'P';
+  const [desplazada, setDesplazada] = useState(false);
+
+  useEffect(() => {
+    const actualizar = () => setDesplazada(window.scrollY > 4);
+    actualizar();
+    window.addEventListener('scroll', actualizar, { passive: true });
+    return () => window.removeEventListener('scroll', actualizar);
+  }, []);
 
   return (
-    <header className="barra">
+    <header className={desplazada ? 'barra barra--desplazada' : 'barra'}>
       <div className="barra-marca">
         <span className="barra-logo" aria-hidden="true">
           <Icono nombre="hogaza" />
         </span>
         <span className="barra-identidad">
-          <strong>Panadería</strong>
-          <span>Horno de barrio</span>
+          <strong>Horno de Barrio</strong>
         </span>
       </div>
 
@@ -74,11 +81,8 @@ export default function BarraNavegacion({
 
       <div className="barra-sesion">
         <div className="barra-usuario">
-          <span className="barra-avatar" aria-hidden="true">
-            {inicial}
-          </span>
           <span className="barra-datos">
-            <strong>{sesion.usuario.nombre}</strong>
+            <strong title={sesion.usuario.nombre}>{sesion.usuario.nombre}</strong>
             <span className={`barra-rol ${sesion.usuario.rol}`}>
               {esEncargado ? 'Encargado' : 'Cajero'}
             </span>

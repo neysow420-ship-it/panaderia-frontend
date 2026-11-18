@@ -10,11 +10,11 @@ export function useCarrito(catalogo: Producto[]) {
   const [cantidades, setCantidades] = useState<Record<string, number>>({});
 
   /** Suma o resta unidades, sin pasar de 0 ni de MAX_CANTIDAD. */
-  function cambiar(productoId: string, delta: number) {
+  function cambiar(productoId: string, valor: number, limite = MAX_CANTIDAD, absoluto = false) {
     setCantidades((actual) => {
       const nueva = Math.min(
-        MAX_CANTIDAD,
-        Math.max(0, (actual[productoId] ?? 0) + delta),
+        Math.min(MAX_CANTIDAD, limite),
+        Math.max(0, Math.trunc(absoluto ? valor : (actual[productoId] ?? 0) + valor)),
       );
       const copia = { ...actual };
       if (nueva === 0) {
