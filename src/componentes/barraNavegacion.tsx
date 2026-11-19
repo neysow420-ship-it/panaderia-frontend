@@ -3,13 +3,14 @@ import type { Sesion } from '../auth/sesion';
 import { Icono, type NombreIcono } from './iconos';
 import './barraNavegacion.css';
 
-export type Pantalla = 'venta' | 'produccion' | 'cierre' | 'reportes';
+export type Pantalla = 'venta' | 'produccion' | 'cierre' | 'reportes' | 'facturas';
 
 const ETIQUETAS: Record<Pantalla, string> = {
   venta: 'Venta',
   produccion: 'Producción',
   cierre: 'Cierre',
   reportes: 'Reportes',
+  facturas: 'Facturas',
 };
 
 const ICONOS: Record<Pantalla, NombreIcono> = {
@@ -17,6 +18,7 @@ const ICONOS: Record<Pantalla, NombreIcono> = {
   produccion: 'produccion',
   cierre: 'cierre',
   reportes: 'reportes',
+  facturas: 'reportes',
 };
 
 interface Props {
@@ -65,7 +67,7 @@ export default function BarraNavegacion({
         </button>
 
         {esEncargado &&
-          (['produccion', 'cierre', 'reportes'] as const).map((seccion) => (
+          (['produccion', 'facturas', 'cierre', 'reportes'] as const).map((seccion) => (
             <button
               key={seccion}
               type="button"

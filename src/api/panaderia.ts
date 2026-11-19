@@ -25,6 +25,7 @@ export interface SolicitudHornada {
   producto_id: string;
   unidades: number;
   creado_local: string;
+  permitir_faltantes?: boolean;
 }
 
 export interface RespuestaHornada {

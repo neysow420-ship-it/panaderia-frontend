@@ -1,6 +1,7 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import * as api from '../../api/panaderia';
+import * as materiales from '../../api/materiales';
 import * as pendientes from '../../database/pendientes';
 import { fechaHoy, sumarDias } from '../../modelos/fecha';
 import PantallaCierre from '../cierre/pantallaCierre';
@@ -15,6 +16,11 @@ const fila = {
 };
 
 vi.mock('../../api/panaderia');
+vi.mock('../../api/materiales', async (importar) => ({
+  ...await importar<typeof materiales>(),
+  listarMateriales: vi.fn(),
+  listarProductos: vi.fn(),
+}));
 vi.mock('../../database/catalogo', () => ({
   cargarCatalogo: async () => ({ productos: [producto], esRespaldo: false }),
   observarCatalogo: () => () => {},
@@ -28,6 +34,13 @@ vi.mock('../../sync/cola', () => ({
 
 beforeEach(() => {
   vi.clearAllMocks();
+  vi.mocked(materiales.listarMateriales).mockResolvedValue({
+    materiales: { harina: { descripcion: 'Harina', saldo_millonesimas: 5_000_000 } },
+  });
+  vi.mocked(materiales.listarProductos).mockResolvedValue([{
+    _id: producto.id, nombre: producto.nombre, precio_centavos: 50, vida_util_dias: 1,
+    activo: true, receta: [{ sku: 'harina', millonesimas: 250_000 }],
+  }]);
   vi.stubGlobal('matchMedia', vi.fn(() => ({
     matches: false, addEventListener: vi.fn(), removeEventListener: vi.fn(),
   })));
@@ -98,6 +111,22 @@ describe('Flujos del turno', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Registrar merma' }));
     await waitFor(() => expect(api.registrarDescarte).toHaveBeenCalledWith(expect.objectContaining({
       fecha, lote_id: hornada._id, producto_id: producto.id, unidades: 1, motivo: 'danado',
+    })));
+  });
+
+  it('bloquea la hornada sin materiales hasta que el encargado autoriza el faltante', async () => {
+    vi.mocked(materiales.listarMateriales).mockResolvedValue({ materiales: {} });
+    const hornada = (await api.listarHornadas(fecha))[0];
+    vi.mocked(api.registrarHornada).mockResolvedValue({ ya_procesada: false, hornada });
+
+    render(<PantallaProduccion />);
+    fireEvent.click(await screen.findByRole('button', { name: '+12' }));
+    const autorizar = await screen.findByRole('checkbox', { name: /Registrar con faltantes/ });
+    expect(screen.getByRole('button', { name: 'Registrar hornada' })).toBeDisabled();
+    fireEvent.click(autorizar);
+    fireEvent.click(screen.getByRole('button', { name: 'Registrar hornada' }));
+    await waitFor(() => expect(api.registrarHornada).toHaveBeenCalledWith(expect.objectContaining({
+      unidades: 12, permitir_faltantes: true,
     })));
   });
 

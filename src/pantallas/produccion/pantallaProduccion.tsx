@@ -1,8 +1,10 @@
 import { navegarPestanas } from '../../componentes/pestanas';
 import { Esqueleto } from '../../componentes/retroalimentacion';
 import { notificar } from '../../componentes/notificaciones';
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ulid } from 'ulid';
+import { cantidadMaterial, listarMateriales, listarProductos, type Inventario, type ProductoReceta } from '../../api/materiales';
+import { PanelMateriales, PanelRecetas } from './materialesProduccion';
 import { ErrorApi } from '../../api/cliente';
 import {
   listarDescartes,
@@ -13,6 +15,7 @@ import {
   type DescarteApi,
   type EstadoVencimiento,
   type HornadaApi,
+  type SolicitudHornada,
   type LoteVencimientoApi,
   type MotivoDescarte,
   type ReporteVencimientosApi,
@@ -29,7 +32,7 @@ import {
 import { useCatalogo } from '../comunes/useCatalogo';
 import '../comunes/encargado.css';
 
-type Pestana = 'hornadas' | 'merma' | 'vencimientos';
+type Pestana = 'hornadas' | 'merma' | 'vencimientos' | 'materiales' | 'recetas';
 
 const ETIQUETA_VENCIMIENTO: Record<EstadoVencimiento, string> = {
   vencido: 'Vencido',
@@ -69,6 +72,38 @@ export default function PantallaProduccion() {
   const [cargando, setCargando] = useState(true);
   const [errorDia, setErrorDia] = useState('');
   const [recarga, setRecarga] = useState(0);
+  const [inventario, setInventario] = useState<Inventario | null>(null);
+  const [productosApi, setProductosApi] = useState<ProductoReceta[] | null>(null);
+  const [errorMateriales, setErrorMateriales] = useState('');
+  const [recargaMateriales, setRecargaMateriales] = useState(0);
+  const actualizarMateriales = useCallback(() => setRecargaMateriales((n) => n + 1), []);
+
+  useEffect(() => {
+    if (pestana !== 'materiales' && pestana !== 'hornadas' && pestana !== 'recetas') return;
+    let activo = true;
+    let consultando = false;
+    const consultar = async () => {
+      if (consultando) return;
+      consultando = true;
+      try {
+        const [stock, catalogo] = await Promise.all([listarMateriales(), listarProductos()]);
+        if (!activo) return;
+        setInventario(stock.materiales);
+        setProductosApi(catalogo);
+        setErrorMateriales('');
+      } catch (fallo) {
+        if (activo) setErrorMateriales(mensajeDe(fallo));
+      } finally {
+        consultando = false;
+      }
+    };
+    void consultar();
+    const intervalo = window.setInterval(() => void consultar(), 30_000);
+    return () => {
+      activo = false;
+      window.clearInterval(intervalo);
+    };
+  }, [pestana, recargaMateriales]);
 
   // Carga del día: lotes, merma y vencimientos.
   useEffect(() => {
@@ -146,6 +181,8 @@ export default function PantallaProduccion() {
                 ['hornadas', 'Hornadas'],
                 ['merma', 'Merma'],
                 ['vencimientos', 'Vencimientos'],
+                ['materiales', 'Materiales'],
+                ['recetas', 'Recetas'],
               ] as const
             ).map(([valor, etiqueta]) => (
               <button
@@ -160,11 +197,11 @@ export default function PantallaProduccion() {
                 onClick={() => setPestana(valor)}
               >
                 {etiqueta}
-                <span className="segmentado__cuenta">{{
+                {(valor === 'hornadas' || valor === 'merma' || valor === 'vencimientos') && <span className="segmentado__cuenta">{{
                   hornadas: hornadas.length,
                   merma: descartes.length,
                   vencimientos: reporteVencimientos?.lotes.length ?? 0,
-                }[valor]}</span>
+                }[valor]}</span>}
               </button>
             ))}
           </div>
@@ -181,6 +218,19 @@ export default function PantallaProduccion() {
 
       <div className="contenido-pestana" id="produccion-contenido" role="tabpanel"
         aria-labelledby={`produccion-tab-${pestana}`} tabIndex={0}>
+        {errorMateriales && (pestana === 'materiales' || pestana === 'recetas' || pestana === 'hornadas') && (
+          <p role="alert" className="aviso aviso--auth">{errorMateriales}
+            <button className="boton boton--fantasma" type="button" onClick={actualizarMateriales}>Reintentar</button>
+          </p>
+        )}
+        {pestana === 'materiales' && <PanelMateriales inventario={inventario} onActualizar={actualizarMateriales} />}
+        {pestana === 'recetas' && productosApi !== null &&
+          <PanelRecetas productos={productosApi} inventario={inventario} onGuardada={() => {
+            actualizarMateriales();
+            notificar('Producto y receta guardados.');
+          }} />
+        }
+        {pestana === 'recetas' && productosApi === null && !errorMateriales && <p role="status">Cargando productos…</p>}
         {pestana === 'hornadas' && (
           <section className="dos-columnas">
             <PanelLotes
@@ -190,9 +240,17 @@ export default function PantallaProduccion() {
               hoy={fecha}
             />
             <FormularioHornada
-              productos={productos}
+              productos={productosApi?.filter((producto) => producto.activo).map((producto) => ({
+                id: producto._id, nombre: producto.nombre, precio_centavos: producto.precio_centavos,
+                receta: producto.receta,
+              })) ?? productos}
+              recetasCargadas={productosApi !== null}
+              inventario={inventario}
               fecha={fecha}
-              onRegistrada={recargar}
+              onRegistrada={(texto) => {
+                recargar(texto);
+                actualizarMateriales();
+              }}
             />
           </section>
         )}
@@ -290,10 +348,14 @@ function PanelLotes({
 
 function FormularioHornada({
   productos,
+  recetasCargadas,
+  inventario,
   fecha,
   onRegistrada,
 }: {
-  productos: { id: string; nombre: string; precio_centavos: number }[];
+  productos: { id: string; nombre: string; precio_centavos: number; receta?: ProductoReceta['receta'] }[];
+  recetasCargadas: boolean;
+  inventario: Inventario | null;
   fecha: string;
   onRegistrada: (texto: string) => void;
 }) {
@@ -303,11 +365,31 @@ function FormularioHornada({
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState('');
 
+  const [autorizacion, setAutorizacion] = useState<string | null>(null);
+  const [faltanteServidor, setFaltanteServidor] =
+    useState<{ clave: string; inventario: Inventario | null } | null>(null);
+  const [reintento, setReintento] = useState<string | null>(null);
+  const intento = useRef<{ clave: string; solicitud: SolicitudHornada } | null>(null);
+
   // Sin selección explícita se usa el primer producto del catálogo.
-  const productoId = productoElegido ?? productos[0]?.id ?? '';
+  const productoId = productos.some((item) => item.id === productoElegido)
+    ? productoElegido ?? '' : productos[0]?.id ?? '';
   const producto = productos.find((item) => item.id === productoId);
+  const claveHornada = JSON.stringify([productoId, unidades, hora, fecha]);
+  const necesidades = producto?.receta?.map((item) => ({
+    sku: item.sku,
+    requerido: item.millonesimas * unidades,
+    saldo: inventario?.[item.sku]?.saldo_millonesimas ?? 0,
+  })) ?? [];
+  const esReintento = reintento === claveHornada;
+  const faltanSegunServidor = faltanteServidor?.clave === claveHornada && faltanteServidor.inventario === inventario;
+  const faltantes = unidades > 0 && (faltanSegunServidor ||
+    (inventario !== null && necesidades.some((item) => item.saldo < item.requerido)));
+  const permiteFaltantes = faltantes && autorizacion === claveHornada;
   const puedeGuardar =
-    Boolean(producto) && unidades > 0 && unidades <= 100_000 &&
+    Boolean(producto) && (esReintento ||
+      ((!recetasCargadas || necesidades.length > 0) && (!faltantes || permiteFaltantes))) &&
+    unidades > 0 && unidades <= 100_000 &&
     (hora === '' || /^([01]\d|2[0-3]):[0-5]\d$/.test(hora)) && !guardando;
 
   const registrar = async () => {
@@ -319,12 +401,21 @@ function FormularioHornada({
     setError('');
 
     try {
-      await registrarHornada({
+      const claveIntento = JSON.stringify([claveHornada, permiteFaltantes]);
+      const solicitud = intento.current && (esReintento || intento.current.clave === claveIntento)
+        ? intento.current.solicitud : {
         operacion_id: ulid(),
         producto_id: producto.id,
         unidades,
         creado_local: hora ? new Date(`${fecha}T${hora}:00-06:00`).toISOString() : creadoAhora(),
-      });
+        ...(permiteFaltantes ? { permitir_faltantes: true } : {}),
+      };
+      intento.current = { clave: claveIntento, solicitud };
+      await registrarHornada(solicitud);
+      intento.current = null;
+      setAutorizacion(null);
+      setFaltanteServidor(null);
+      setReintento(null);
 
       setUnidades(0);
       setHora('');
@@ -332,6 +423,15 @@ function FormularioHornada({
         `Hornada registrada: ${unidades} × ${producto.nombre}.`,
       );
     } catch (fallo) {
+      if (fallo instanceof ErrorApi && fallo.estado >= 400 && fallo.estado < 500) {
+        intento.current = null;
+        setReintento(null);
+        if (fallo.codigo === 'materiales_insuficientes') {
+          setFaltanteServidor({ clave: claveHornada, inventario });
+        }
+      } else {
+        setReintento(claveHornada);
+      }
       setError(mensajeDe(fallo));
       notificar(mensajeDe(fallo), 'error');
     } finally {
@@ -405,6 +505,21 @@ function FormularioHornada({
                 : 'Elige un producto para continuar.'}
             </p>
 
+            {producto && recetasCargadas && necesidades.length === 0 && (
+              <p className="aviso aviso--auth">Configura la receta de este producto en Recetas.</p>
+            )}
+            {unidades > 0 && necesidades.length > 0 && inventario !== null && (
+              <ul aria-label="Materiales necesarios">
+                {necesidades.map(({ sku, requerido, saldo }) => (
+                  <li key={sku}>{sku}: {cantidadMaterial(requerido)} requeridas, {cantidadMaterial(saldo)} disponibles</li>
+                ))}
+              </ul>
+            )}
+            {faltantes && !esReintento && <label className="campo">
+              <span><input type="checkbox" checked={permiteFaltantes} disabled={guardando}
+                onChange={(evento) => setAutorizacion(evento.target.checked ? claveHornada : null)} />
+                Registrar con faltantes y dejar el material pendiente</span>
+            </label>}
             {error && (
               <p className="aviso aviso--auth" role="alert">
                 <Icono nombre="alerta" />
@@ -419,7 +534,7 @@ function FormularioHornada({
               onClick={() => void registrar()}
             >
               <Icono nombre="mas" />
-              {guardando ? 'Registrando…' : 'Registrar hornada'}
+              {guardando ? 'Registrando…' : esReintento ? 'Reintentar la misma hornada' : 'Registrar hornada'}
             </button>
           </>
         )}

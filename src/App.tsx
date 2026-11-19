@@ -9,6 +9,7 @@ import {
   type Sesion,
 } from './auth/sesion';
 import BarraNavegacion, { type Pantalla } from './componentes/barraNavegacion';
+import PantallaFacturas from './pantallas/facturas/pantallaFacturas';
 import PantallaCierre from './pantallas/cierre/pantallaCierre';
 import PantallaLogin from './pantallas/login/pantallaLogin';
 import PantallaProduccion from './pantallas/produccion/pantallaProduccion';
@@ -118,6 +119,7 @@ function Aplicacion({ sesion, onSalir }: PropsAplicacion) {
       <div className="app-contenido">
         {pantallaVisible === 'venta' && <PantallaVenta consultarStock={sesion.usuario.rol === 'encargado'} />}
         {pantallaVisible === 'produccion' && <PantallaProduccion />}
+        {pantallaVisible === 'facturas' && <PantallaFacturas />}
         {pantallaVisible === 'cierre' && <PantallaCierre />}
         {pantallaVisible === 'reportes' && <PantallaReportes />}
       </div>
